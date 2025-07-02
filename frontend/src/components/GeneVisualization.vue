@@ -50,9 +50,12 @@
           <button @click="showReportModal">
             <i class="fa-solid fa-table-list"></i> 查看txt报告
           </button>
-          <button @click="openGffReportModal"> <!-- 修改方法名 -->
+          <button @click="openGffReportModal">
             <i class="fa-solid fa-file-alt"></i> 查看GFF报告
           </button>
+          <!-- <button @click="handleStreamSummary" :disabled="isUploading || !geneData">
+            <i class="fa-solid fa-robot"></i> 生成AI分析报告
+          </button> -->
           <button @click="clearDetection">
             <i class="fa-solid fa-power-off"></i> 关闭预测
           </button>
@@ -113,81 +116,65 @@
           </div>
         </div>
 
-        <!-- 报告模态框 -->
-        <div v-if="showModal" class="modal">
-          <div class="modal-content">
-            <span class="close" @click="closeModal">&times;</span>
-            <h3 class="modal-title">检测报告</h3>
-            <!-- 修改这里，调用 formatContent 方法并传入 currentReport -->
-            <div v-if="currentReport" class="report-content">
-              <div v-html="formatContent(currentReport)"></div>
-            </div>
-            <div v-else>正在加载报告...</div>
-          </div>
-        </div>
         <!-- 基因组详细信息模态框 -->
         <div v-if="showGeneDetailsModal" class="modal">
           <div class="modal-content">
             <span class="close" @click="closeGeneDetailsModal">&times;</span>
-            <h3 class="modal-title">基因组详细信息</h3>
+            <h3 class="modal-title">基因详细信息</h3>
             <div class="gene-details">
               <div class="detail-row">
-                <span class="detail-label">类型:</span>
-                <span class="detail-value">{{ currentGeneDetails.type }}</span>
+                <div class="detail-label">基因ID:</div>
+                <div class="detail-value">{{ currentGeneDetails.location }}</div>
               </div>
               <div class="detail-row">
-                <span class="detail-label">位置:</span>
-                <span class="detail-value">{{ currentGeneDetails.location }}</span>
+                <div class="detail-label">基因类型:</div>
+                <div class="detail-value">{{ currentGeneDetails.type }}</div>
               </div>
               <div class="detail-row">
-                <span class="detail-label">链:</span>
-                <span class="detail-value">{{ currentGeneDetails.strand }}</span>
+                <div class="detail-label">位置:</div>
+                <div class="detail-value">{{ currentGeneDetails.location }}</div>
               </div>
               <div class="detail-row">
-                <span class="detail-label">置信度:</span>
-                <span class="detail-value">{{ currentGeneDetails.qualifiers.confidence }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">长度:</span>
-                <span class="detail-value">{{ currentGeneDetails.qualifiers.protein_length }}</span>
+                <div class="detail-label">长度:</div>
+                <div class="detail-value">{{ getWidth(currentGeneDetails) }}</div>
               </div>
             </div>
           </div>
         </div>
         <!-- GFF报告模态框 -->
         <div v-if="showGffReportModal" class="modal">
-          <div class="modal-content gff-modal-content">
+          <div class="modal-content">
             <span class="close" @click="closeGffReportModal">&times;</span>
-          <!-- 新增一个容器来包含标题和下载按钮 -->
-          <div class="gff-title-button-container">
-              <h2 class="modal-title">GFF报告</h2>
-              <!-- 修改：添加新的类名 -->
-              <button @click="downloadGffReport" v-if="gffReport" class="download-gff-button">
-                <i class="fa-solid fa-download"></i> 下载GFF报告
-              </button>
+            <h3 class="modal-title">GFF报告</h3>
+            <div class="gff-modal-content" v-html="gffReport"></div>
+          </div>
+        </div>
+        
+        <!-- AI流式分析报告对话框（非弹窗，固定在基因图谱下方） -->
+        <div class="ai-report-panel">
+          <div class="ai-report-panel-header">
+            <i class="fa-solid fa-robot"></i> AI分析报告
+            <button @click="handleStreamSummary" :disabled="isUploading || !geneData" class="ai-report-regenerate">
+              <i class="fa-solid fa-rotate"></i> 重新生成
+            </button>
+          </div>
+          <div class="ai-report-panel-body" ref="aiReportPanelBody">
+            <div v-if="isUploading && !currentReport" class="ai-report-loading">
+              <i class="fa-solid fa-spinner fa-spin"></i> 正在生成AI分析报告...
             </div>
-            <div v-if="gffReport" class="report-content">
-              <!-- 结构化GFF内容 -->
-              <template v-if="typeof gffReport === 'string'">
-                <div v-for="(line, index) in gffReport.split('\n')" :key="index">
-                  <!-- 处理元数据行 -->
-                  <div v-if="line.startsWith('##')" class="gff-header">
-                    {{ line.slice(2) }}
-                  </div>
-                  <!-- 处理数据行 -->
-                  <div v-else class="gff-row">
-                    <span 
-                      v-for="(cell, cellIndex) in line.split('\t')" 
-                      :key="cellIndex" 
-                      class="gff-cell"
-                    >
-                      {{ cell }}
-                    </span>
-                  </div>
-                </div>
-              </template>
+            <div v-else-if="uploadError" class="ai-report-error">
+              <i class="fa-solid fa-exclamation-triangle"></i> {{ uploadError }}
             </div>
-            <div v-else>正在加载GFF报告...</div>
+            <div v-else-if="currentReport" v-html="formatContent(currentReport)"></div>
+            <div v-else class="ai-report-empty">
+              暂无AI分析报告，请点击上方按钮生成。
+              <div v-if="geneData" class="ai-report-empty-tip">
+                可以点击"重新生成"按钮来获取关于此基因组的AI分析报告。
+              </div>
+              <div v-else class="ai-report-empty-tip">
+                请先上传基因组数据。
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -205,7 +192,6 @@ export default {
         report_date: ''
       },
       geneData: null,
-      showModal: false,
       currentReport: null,
       savedGeneData: null,
       showLocationTooltip: false,
@@ -249,6 +235,12 @@ export default {
     geneData() {
       this.$nextTick(() => {
         this.drawRuler();
+      });
+    },
+    // AI报告流式内容变化时自动滚动到底部
+    currentReport() {
+      this.$nextTick(() => {
+        this.scrollToBottom();
       });
     }
   },
@@ -411,15 +403,17 @@ export default {
         this.processGeneRows();
 
         // 新增：从响应头获取报告文件名
-    // 修改：直接从响应数据中获取文件名（假设字段为 filename）
+    // 修改：直接从响应数据中获取文件名（假设字段为 filename ）
         // 新增：从响应头获取报告文件名
         let filename = '';
         if (data.summary && data.summary.filename) {
           filename = data.summary.filename;
         } else if (data.summary) {
           filename = Object.keys(data.summary)[0];
+        } else if (data.filename) {
+          filename = data.filename;
         } else {
-          filename = this.extractFilename(data);
+          filename = '';
         }
 
         // 解析基因组ID和日期
@@ -432,9 +426,18 @@ export default {
 
         // 完成进度
         this.progress = 100;
-        setTimeout(() => {
+        setTimeout(async () => {
           this.isUploading = false;
           clearInterval(this.progressInterval);
+          
+          // 基因组处理完成后，可以自动开始生成AI报告
+          // 等待一小段时间再触发AI分析，让用户先查看基因图谱
+          setTimeout(() => {
+            if (this.geneData && !this.currentReport) {
+              console.log('自动开始生成AI分析报告...');
+              this.handleStreamSummary();
+            }
+          }, 1000);
         }, 500);
       } catch (error) {
         console.error('Error:', error);
@@ -452,29 +455,83 @@ export default {
       return match ? [match[1], match[2]] : ['', ''];
     },
 
-    //获取报告逻辑
-    // 修改后的报告获取方法
+    // 获取TXT报告并显示为模态框
     async showReportModal() {
-      this.showModal = true;
-      if (!this.currentReport) {
-        try {
-      // 从geneData中获取genome_id
-          const genome_id = this.geneData.metadata.genome_id;
-
-      // 生成当前日期
-          const current_date = new Date().toISOString().split('T')[0];
-
-          const url = `http://localhost:5000/summary?genome_id=${genome_id}&current_date=${current_date}`;
-          const response = await fetch(url);
-
-          if (!response.ok) throw new Error('报告获取失败');
-
-          const reportData = await response.json();
-          this.currentReport = reportData[Object.keys(reportData)[0]];
-        } catch (error) {
-          console.error('报告加载失败:', error);
-          this.currentReport = `无法加载报告内容：${error.message}`;
-        }
+      if (!this.geneData) {
+        alert('没有基因组数据，无法显示报告');
+        return;
+      }
+      
+      // 创建模态框（临时添加到DOM）
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'flex';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+      modal.style.zIndex = '2000';
+      modal.style.justifyContent = 'center';
+      modal.style.alignItems = 'center';
+      
+      const modalContent = document.createElement('div');
+      modalContent.className = 'modal-content';
+      modalContent.style.backgroundColor = 'white';
+      modalContent.style.padding = '2rem';
+      modalContent.style.borderRadius = '12px';
+      modalContent.style.width = '80%';
+      modalContent.style.maxWidth = '700px';
+      modalContent.style.maxHeight = '80vh';
+      modalContent.style.overflowY = 'auto';
+      
+      const title = document.createElement('h3');
+      title.textContent = 'TXT 分析报告';
+      title.className = 'modal-title';
+      
+      const closeBtn = document.createElement('span');
+      closeBtn.innerHTML = '&times;';
+      closeBtn.className = 'close';
+      closeBtn.style.position = 'absolute';
+      closeBtn.style.right = '1.5rem';
+      closeBtn.style.top = '1.5rem';
+      closeBtn.style.fontSize = '1.8rem';
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.onclick = () => document.body.removeChild(modal);
+      
+      const content = document.createElement('div');
+      content.className = 'report-content';
+      content.innerHTML = '<div class="loading">正在加载报告...</div>';
+      
+      modalContent.appendChild(title);
+      modalContent.appendChild(closeBtn);
+      modalContent.appendChild(content);
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+      
+      try {
+        // 从geneData中获取genome_id
+        const genome_id = this.geneData.metadata.genome_id;
+        
+        // 生成当前日期
+        const current_date = new Date().toISOString().split('T')[0];
+        
+        // 获取报告
+        const url = `http://localhost:5000/summary?genome_id=${genome_id}&current_date=${current_date}`;
+        const response = await fetch(url);
+        
+        if (!response.ok) throw new Error('报告获取失败');
+        
+        const reportData = await response.json();
+        const reportContent = reportData[Object.keys(reportData)[0]];
+        
+        // 显示报告内容（独立于AI流式报告）
+        content.innerHTML = this.formatContent(reportContent);
+        
+      } catch (error) {
+        console.error('TXT报告加载失败:', error);
+        content.innerHTML = `<div class="error">无法加载报告内容：${error.message}</div>`;
       }
     },
 
@@ -529,9 +586,8 @@ export default {
       this.gffReport = null; // 重置GFF报告
     },
 
-    closeModal() {
-      this.showModal = false;
-    },
+    // 清除旧的closeModal方法
+    
 
     formatContent(content) {
       const cleaned = content.replace(/[*#]/g, '');
@@ -715,6 +771,80 @@ export default {
         a.download = 'gff_report.gff';
         a.click();
         URL.revokeObjectURL(url);
+      }
+    },
+    async streamSummary(genome_id, genome_data) {
+      this.isUploading = true;
+      this.currentReport = '';
+      this.uploadError = null;
+      try {
+        const postData = { genome_id, genome_data };
+        const response = await fetch('http://localhost:5000/stream_summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData)
+        });
+        if (!response.ok) throw new Error(`服务器响应错误: ${response.status} ${response.statusText}`);
+        if (!response.body) throw new Error('流式接口无响应体');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+        this.currentReport = '';
+        while (!done) {
+          const { value, done: streamDone } = await reader.read();
+          done = streamDone;
+          let chunk = '';
+          if (value) {
+            chunk = decoder.decode(value, { stream: !done });
+            if (chunk.startsWith('[ERROR]')) {
+              throw new Error(chunk.substring(7));
+            }
+            // 追加内容并强制刷新
+            this.currentReport += chunk;
+            await this.$nextTick();
+            this.scrollToBottom();
+          }
+        }
+      } catch (error) {
+        this.uploadError = 'AI分析失败: ' + error.message;
+        this.currentReport = '生成报告时出错: ' + error.message;
+      } finally {
+        this.isUploading = false;
+        await this.$nextTick();
+        this.scrollToBottom();
+      }
+    },
+    async handleStreamSummary() {
+      if (!this.geneData) {
+        console.error('没有基因数据，无法生成报告');
+        this.uploadError = '请先上传基因组数据';
+        return;
+      }
+      
+      // 清空旧的报告内容
+      this.currentReport = '';
+      this.uploadError = null;
+      
+      try {
+        console.log('开始生成AI分析报告...');
+        // 确保genome_id存在
+        const genome_id = this.geneData.metadata.genome_id || 'unknown';
+        
+        // 调用流式分析
+        await this.streamSummary(genome_id, this.geneData);
+      } catch (e) {
+        console.error('处理流式分析时出错:', e);
+        this.uploadError = 'AI分析失败: ' + e.message;
+        this.currentReport = '生成报告失败: ' + e.message;
+      }
+    },
+    
+    // 自动滚动到底部的方法
+    scrollToBottom() {
+      const panel = this.$refs.aiReportPanelBody;
+      if (panel) {
+        console.log('滚动到底部, 高度:', panel.scrollHeight);
+        panel.scrollTop = panel.scrollHeight;
       }
     }
   }
@@ -1269,5 +1399,220 @@ input[type="text"] {
   border-radius: 6px;
   border: 1px solid #e0e0e0;
   font-size: 1rem;
+}
+
+/* 新增AI流式报告样式 */
+.ai-report-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  animation: fadeIn 0.4s;
+}
+
+.ai-report-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.ai-report-title {
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+}
+
+.ai-report-title i {
+  margin-right: 0.5rem;
+  color: #4a89dc;
+  font-size: 1.2rem;
+}
+
+.ai-report-stream {
+  font-size: 0.9rem;
+  color: #34495e;
+  line-height: 1.6;
+}
+
+.ai-report-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  font-size: 1rem;
+  color: #7f8c8d;
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 新增AI报告面板样式 */
+.ai-report-panel {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-report-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  color: #2c3e50;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.ai-report-panel-header i {
+  color: #4a89dc;
+  margin-right: 0.5rem;
+}
+
+.ai-report-regenerate {
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-report-regenerate:hover {
+  background: #43a047;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.ai-report-regenerate:disabled {
+  background: #cccccc;
+  cursor: not-allowed;
+}
+
+.ai-report-panel-body {
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  color: #34495e;
+  line-height: 1.6;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.ai-report-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #666;
+  gap: 10px;
+  font-size: 1rem;
+}
+
+.ai-report-error {
+  color: #e74c3c;
+  padding: 15px;
+  background-color: #fadbd8;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+.ai-report-empty {
+  color: #7f8c8d;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.ai-report-empty-tip {
+  margin-top: 10px;
+  font-size: 0.9em;
+  color: #3498db;
+}
+
+/* 强化滚动条样式 */
+.ai-report-panel-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ai-report-panel-body::-webkit-scrollbar-thumb {
+  background-color: #4a89dc;
+  border-radius: 4px;
+}
+
+.ai-report-panel_body::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+}
+
+/* 增强报告内容格式 */
+.ai-report-panel-body h3 {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.ai-report-panel_body p {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.ai-report-panel_body li {
+  margin-bottom: 4px;
+  list-style-position: inside;
+}
+
+/* 表格样式优化 */
+.ai-report-panel-body .summary-table {
+  margin: 15px 0;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ai-report-panel-body .summary-table th {
+  background-color: #4a89dc;
+  color: white;
+  padding: 8px;
+  text-align: left;
+  font-weight: normal;
+}
+
+.ai-report-panel-body .summary-table td {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
 }
 </style>

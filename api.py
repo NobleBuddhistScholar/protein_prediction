@@ -1,15 +1,19 @@
+import json
 import os
 import logging
-from flask import Flask, request, jsonify, send_from_directory, Response
+from openai import OpenAI
+from datetime import datetime
+from flask import Response, stream_with_context
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from train import ProteinClassifier
 from generate_gff import generate_gff
-import json
 import queue
 import threading
 import tempfile
 import shutil
 import base64
+from chat_api import generate_summary_stream
 
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG)
@@ -103,7 +107,7 @@ def get_models():
 # 检查文件类型
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
+#上传文件并处理基因组预测
 @app.route('/upload', methods=['POST'])
 def upload_file():
     logging.debug("Received file upload request")
@@ -116,9 +120,6 @@ def upload_file():
 
     if not allowed_file(file.filename):
         return jsonify({"error": "Invalid file type. Only .fasta files are allowed."}), 400
-
-    # 流式模式参数，如果前端传来stream=true，则使用流式响应
-    stream_mode = request.form.get('stream', 'false').lower() == 'true'
 
     fasta_file_path = os.path.join(UPLOAD_FOLDER, file.filename)
     try:
@@ -156,23 +157,34 @@ def upload_file():
         # 处理病毒基因组
         classifier = ProteinClassifier.load(model_path=model_path, model=model_type)
         logging.debug("Model loaded successfully")      
-
-        # 非流式模式，使用原有方法
-        results, chat_summary = classifier.predict_genome(
+        results = classifier.predict_genome(
             fasta_file=fasta_file_path,
             result_save_path=RESULT_FOLDER,
-            summary_save_path=SUMMARY_FOLDER,
             min_confidence=0.8,
             molecule_type='RNA',
             min_protein_length=100,
-            summary=True
         )
-        return jsonify({"results": results, "summary": chat_summary})
-            
+        # 直接返回json格式的预测结果
+        return {"results": results}
     except Exception as e:
         logging.error(f"Failed to process genome: {str(e)}")
         return jsonify({"error": f"Failed to process genome: {str(e)}"}), 500
 
+# 生成报告（流式分析）
+@app.route('/stream_summary', methods=['POST'])
+def stream_summary():
+    data = request.get_json()
+    genome_data = data['genome_data']
+    genome_id = genome_data['metadata']['genome_id']
+    save_path = SUMMARY_FOLDER
+    return Response(
+        stream_with_context(
+            generate_summary_stream(genome_id, genome_data, save_path)
+        ),
+        mimetype='text/plain'
+    )
+
+# 获取报告
 @app.route('/summary', methods=['GET'])
 def get_summary():
     genome_id = request.args.get('genome_id')
@@ -395,7 +407,6 @@ def get_model_details(model_filename):
 
 
 # 报告管理相关API接口
-
 @app.route('/reports/<report_filename>', methods=['DELETE'])
 def delete_report(report_filename):
     """删除指定报告文件"""

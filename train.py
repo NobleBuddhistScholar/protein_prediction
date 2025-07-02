@@ -14,7 +14,6 @@ import json
 import matplotlib.pyplot as plt
 from pre_processing import translate_dna_to_protein,SequenceEncoder,parse_fasta,set_seed
 from model import HybridModel,MSA_ResGRUNet,HyperFusionCortex
-from chat_api import generate_summary
 import os
 
 class ProteinClassifier:
@@ -361,7 +360,7 @@ class ProteinClassifier:
             return classifier       
 
 
-    def predict_genome(self, fasta_file, result_save_path, summary_save_path, min_confidence=0.7, min_protein_length=100, molecule_type='DNA', summary=True):
+    def predict_genome(self, fasta_file, result_save_path, min_confidence=0.7, min_protein_length=100, molecule_type='DNA'):
         # 分子类型敏感的ORF检测
         def advanced_orf_detection(dna_seq, min_len, mol_type):
             """支持RNA/DNA双模式的ORF检测，遍历所有超过最短序列限制的ORF"""
@@ -548,15 +547,7 @@ class ProteinClassifier:
                 ]
             }
             
-            # 返回数据给 API 处理
-            if summary:
-                response = generate_summary(record.id, output, save_path=summary_save_path)
-            else:
-                response = None
-            with open(f"{result_save_path}/{record.id}_annotation.json", "w") as f:
-                json.dump(output, f, indent=2, ensure_ascii=False)
-            
-        return output, response
+        return output
 
 
 
