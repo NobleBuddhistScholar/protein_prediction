@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.egg-info/
+.env
+.venv/
+env/
+venv/
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Node/Vue
+frontend/node_modules/
+frontend/dist/
+npm-debug.log
+yarn-error.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 结果/中间文件
+result/
+summary/
+gff/
+# model/*.pth
+#model/*.json
+
+# 训练数据
+train_data/
+# 测试数据 
+test_data/
+
+#实际测试
+prectice_data/
