@@ -6,7 +6,7 @@ import os
 from datetime import datetime  # Import datetime for date formatting
 # 初始化客户端 - 从环境变量获取API密钥
 client = OpenAI(
-    api_key='sk-2197cbc777064fc6b7fff4ac5c81959d',  # 请设置环境变量DEEPSEEK_API_KEY
+    api_key='sk-755fa616aac649b5be5d47c6af5ed44a',  # 请设置环境变量DEEPSEEK_API_KEY
     base_url="https://api.deepseek.com"  # 使用基础URL
 )
 

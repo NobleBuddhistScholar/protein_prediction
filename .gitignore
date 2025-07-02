@@ -32,6 +32,9 @@ gff/
 # model/*.pth
 #model/*.json
 
+# 预训练模型文件夹
+per_model/
+
 # 训练数据
 train_data/
 # 测试数据 
