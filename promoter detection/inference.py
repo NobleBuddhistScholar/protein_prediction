@@ -10,7 +10,7 @@ def predict_sequence(text, model_path, kmer=-1):
     参数:
         text (str): 待预测的 DNA 序列（如 "ATCGTACG..."）
         model_path (str): 训练好的模型保存目录（需包含 tokenizer 和 model）
-        kmer (int): k-mer 切分长度。若模型使用 k-mer（如 DNABERT），则设为对应值（如 6）；
+        kmer (int): k-mer 切分长度。若模型使用 k-mer（如 GENERator），则设为对应值（如 6）；
                     若模型不使用 k-mer，则设为 -1，表示不传入该参数。
 
     返回:
