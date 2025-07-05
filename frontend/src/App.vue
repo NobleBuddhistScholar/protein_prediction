@@ -64,9 +64,9 @@ export default {
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #92afcd;
-  color: #333;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  background: #f5f7fa;
+  color: #2c3e50;
   line-height: 1.6;
 }
 
@@ -78,33 +78,37 @@ body {
 
 /* 美化后的头部样式 */
 .header {
-  background: linear-gradient(135deg, #33465a 0%, #8eaee5 100%);
+  background: linear-gradient(135deg, #1e3c6e 0%, #2a5190 100%);
   color: white;
-  padding: 2rem 1rem;
+  padding: 2.2rem 1rem;
   text-align: center;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-bottom-left-radius: 20px;
-  border-bottom-right-radius: 20px;
+  box-shadow: 0 8px 32px rgba(30,60,110,0.2);
+  border-bottom-left-radius: 22px;
+  border-bottom-right-radius: 22px;
 }
 
 .header h1 {
-  font-family: 'Dancing Script', cursive;
-  font-size: 4rem;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  font-size: 3.5rem;
   margin-bottom: 1rem;
   color: #fff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.7), 0 2px 5px rgba(0, 0, 0, 0.15);
   animation: fadeInDown 1s ease;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .header p {
-  font-family: 'Open Sans', sans-serif;
-  color: #ecf0f1;
-  font-size: 1.2rem;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 1.13rem;
   margin-bottom: 0.5rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.5px;
   animation: fadeInUp 1s ease;
+  font-weight: 400;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* 模拟生物细胞的背景元素 */
@@ -115,11 +119,12 @@ body {
   left: -50%;
   width: 200%;
   height: 800%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 15%, transparent 15%);
-  background-size: 25px 20px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 10%, transparent 10%);
+  background-size: 20px 20px;
   z-index: 0;
   pointer-events: none;
-  animation: rotate 30s linear infinite;
+  animation: rotate 40s linear infinite;
+  opacity: 0.8;
 }
 
 @keyframes fadeInDown {
@@ -157,79 +162,126 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
-  margin: 10px;
-  border-radius: 20px;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+  margin: 15px;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  background: white;
 }
 
 .sidebar {
-  width: 220px;
-  background: linear-gradient(180deg, #567798 0%, #506f8e 100%);
-  padding: 1.5rem 1rem;
+  width: 230px;
+  background: linear-gradient(180deg, #1e3c6e 0%, #27487e 100%);
+  padding: 2rem 1.2rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  border-top-left-radius: 20px;
-  border-bottom-left-radius: 20px;
+  gap: 1.2rem;
+  border-top-left-radius: 18px;
+  border-bottom-left-radius: 18px;
+  box-shadow: 2px 0 15px rgba(0,0,0,0.1);
 }
 
 .sidebar button {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  padding: 0.8rem 1rem;
+  gap: 0.9rem;
+  padding: 1rem 1.2rem;
   background-color: transparent;
-  color: #eceef1;
+  color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 1rem;
+  font-size: 1.05rem;
   text-align: left;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 .sidebar button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(42, 81, 144, 0.75);
   transform: translateX(5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .sidebar button.active {
-  background-color: rgba(255, 255, 255, 0.3);
+  background-color: #3a6cb9;
   color: white;
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar button i {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  color: rgba(255, 255, 255, 0.95);
+  transition: all 0.3s ease;
+}
+
+.sidebar button:hover i {
+  transform: scale(1.1);
 }
 
 .content {
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
-  background-color: rgb(206, 215, 237);
-  border-top-right-radius: 20px;
-  border-bottom-right-radius: 20px;
+  background: #ffffff;
+  border-top-right-radius: 18px;
+  border-bottom-right-radius: 18px;
 }
 
 /* 过渡效果 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.fade-enter,
+.fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
 .fade-leave-to {
   opacity: 0;
+  transform: translateY(-10px);
 }
 
 .icon-dna:before {
   font-family: 'iconfont';
   content: '\e61a';
+  color: #2a5190;
 }
 
 .icon-report:before {
   font-family: 'iconfont';
   content: '\e60a';
+  color: #2a5190;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
+    margin: 10px;
+  }
+  
+  .sidebar {
+    width: 100%;
+    border-radius: 18px 18px 0 0;
+    padding: 1rem;
+  }
+  
+  .content {
+    border-radius: 0 0 18px 18px;
+    padding: 1.5rem;
+  }
+  
+  .header h1 {
+    font-size: 2.5rem;
+  }
+  
+  .header p {
+    font-size: 1rem;
+  }
 }
 </style>    

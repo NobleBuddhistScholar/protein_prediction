@@ -124,12 +124,7 @@
           <div v-else class="loading-details">
             <i class="fa-solid fa-spinner fa-spin"></i> 加载报告中...
           </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-primary" @click="downloadSummary">
-            <i class="fa-solid fa-download"></i> 下载报告
-          </button>
-        </div>
+        </div> 
       </div>
     </div>
 
@@ -163,22 +158,6 @@
             <div class="detail-item">
               <label>最后修改:</label>
               <span>{{ formatTimestamp(selectedReportDetails.last_modified) }}</span>
-            </div>
-            <div class="detail-item">
-              <label>创建时间:</label>
-              <span>{{ formatTimestamp(selectedReportDetails.created_time) }}</span>
-            </div>
-            <div class="detail-item">
-              <label>JSON文件:</label>
-              <span :class="selectedReportDetails.json_file_exists ? 'status-yes' : 'status-no'">
-                {{ selectedReportDetails.json_file_exists ? '存在' : '缺少' }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <label>GFF文件:</label>
-              <span :class="selectedReportDetails.gff_files_exist ? 'status-yes' : 'status-no'">
-                {{ selectedReportDetails.gff_files_exist ? `存在 (${selectedReportDetails.associated_files.gff_files.length}个)` : '缺少' }}
-              </span>
             </div>
           </div>
           <div v-else class="loading-details">
@@ -624,9 +603,9 @@ export default {
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  font-family: 'Arial', sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 2.5rem 1.5rem 2rem 1.5rem;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
   min-height: 100vh;
 }
 
@@ -635,46 +614,52 @@ export default {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(90deg, #e3f0ff 60%, #f5f7fa 100%);
+  border-radius: 18px;
+  padding: 1.8rem;
+  box-shadow: 0 4px 18px rgba(80,120,200,0.10);
 }
 
 .section-title {
   color: #2c3e50;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.7rem;
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 600;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .section-title i {
-  color: #e67e22;
-  font-size: 2rem;
+  color: #4a89dc;
+  font-size: 2.1rem;
 }
 
 .refresh-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #e67e22, #d35400);
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  font-size: 1.05rem;
   font-weight: 500;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 10px rgba(230, 126, 34, 0.3);
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(230, 126, 34, 0.4);
+  background: linear-gradient(135deg, #3a79cc, #5cc5dd);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74,137,220,0.25);
 }
 
 .refresh-btn:disabled {
-  opacity: 0.7;
+  background: #b0c4de;
   cursor: not-allowed;
   transform: none;
 }
@@ -684,10 +669,10 @@ export default {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
-  background: white;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
 }
 
 .search-container {
@@ -701,49 +686,56 @@ export default {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #7f8c8d;
+  color: #4a89dc;
   font-size: 1rem;
 }
 
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 2px solid #ecf0f1;
-  border-radius: 25px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: #f8f9fa;
+  border: 1.5px solid #b0c4de;
+  border-radius: 10px;
+  font-size: 1.08rem;
+  font-weight: 500;
+  color: #34495e;
+  transition: all 0.3s;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #e67e22;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.1);
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 3px rgba(74,137,220,0.1);
+  transform: translateY(-1px);
 }
 
 .report-count {
-  color: #7f8c8d;
-  font-weight: 500;
-  font-size: 0.95rem;
+  color: #34495e;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
 }
 
 .loading-section, .error-section {
   text-align: center;
   padding: 3rem;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
 }
 
 .loading-section {
-  color: #e67e22;
-  font-size: 1.1rem;
+  color: #4a89dc;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
 .error-section {
   color: #e74c3c;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 500;
+  background: rgba(231, 76, 60, 0.05);
 }
 
 .report-grid {
@@ -754,16 +746,17 @@ export default {
 
 .report-card {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  border: none;
 }
 
 .report-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(74,137,220,0.15);
 }
 
 .report-card-header {
@@ -771,7 +764,7 @@ export default {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+  background: linear-gradient(135deg, #2b5694 0%, #3a6cb9 100%);
   color: white;
 }
 
@@ -784,6 +777,7 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .report-info h3 {
@@ -803,15 +797,18 @@ export default {
 }
 
 .report-filename {
-  color: #7f8c8d;
-  font-size: 0.85rem;
+  color: #4a89dc;
+  font-size: 0.98rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-family: 'Monaco', 'Courier New', monospace;
-  background: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 6px;
+  background: rgba(74,137,220,0.1);
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .report-card-actions {
@@ -822,26 +819,27 @@ export default {
 }
 
 .action-btn {
-  padding: 0.75rem;
+  padding: 0.7rem;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.08);
   gap: 0.5rem;
 }
 
 .view-btn {
-  background: linear-gradient(135deg, #74b9ff, #0984e3);
+  background: linear-gradient(135deg, #4a89dc, #5b9dff);
   color: white;
 }
 
 .details-btn {
-  background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+  background: linear-gradient(135deg, #74b9ff, #0984e3);
   color: white;
 }
 
@@ -851,7 +849,7 @@ export default {
 }
 
 .gff-btn {
-  background: linear-gradient(135deg, #fdcb6e, #e17055);
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
 }
 
@@ -891,13 +889,15 @@ export default {
   text-align: center;
   padding: 4rem 2rem;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(80,120,200,0.1);
+  border: 1px solid rgba(80,120,200,0.05);
 }
 
 .empty-state i {
   font-size: 4rem;
-  color: #bdc3c7;
+  color: #4a89dc;
+  opacity: 0.4;
   margin-bottom: 1rem;
 }
 
@@ -952,7 +952,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+  background: linear-gradient(135deg, #4a89dc 0%, #5b9dff 100%);
   color: white;
   border-radius: 16px 16px 0 0;
 }
@@ -1088,11 +1088,13 @@ export default {
 
 /* 报告内容样式 */
 .report-content h3 {
-  color: #e67e22;
+  color: #4a89dc;
   margin: 2rem 0 1.5rem;
   padding-bottom: 0.8rem;
-  border-bottom: 2px solid #ecf0f1;
+  border-bottom: 2px solid rgba(74,137,220,0.15);
   font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .report-content ul {
@@ -1106,11 +1108,12 @@ export default {
   margin: 1rem 0;
   color: #34495e;
   font-size: 1.1rem;
+  line-height: 1.5;
 }
 
 .report-content li::before {
   content: "▪";
-  color: #e67e22;
+  color: #4a89dc;
   position: absolute;
   left: -1.5rem;
   font-size: 1rem;
@@ -1139,7 +1142,7 @@ export default {
 }
 
 .summary-table th {
-  background-color: #e67e22;
+  background-color: #4a89dc;
   color: white;
   font-weight: 600;
 }
@@ -1190,7 +1193,7 @@ export default {
 }
 
 .notification.warning {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
 }
 
 /* 响应式设计 */

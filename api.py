@@ -404,7 +404,23 @@ def get_model_details(model_filename):
     except Exception as e:
         logging.error(f"Failed to get model details for {model_filename}: {str(e)}")
         return jsonify({"error": f"Failed to get model details: {str(e)}"}), 500
+@app.route('/models/<model_filename>/export', methods=['GET'])
+def export_model(model_filename):
+    """直接返回指定模型文件内容"""
+    try:
+        if not model_filename.endswith('.pth'):
+            return jsonify({"error": "Invalid model filename"}), 400
 
+        model_path = os.path.join('model', model_filename)
+        if not os.path.exists(model_path):
+            return jsonify({"error": "Model file not found"}), 404
+
+        # 直接返回文件内容，content-type为二进制流
+        from flask import send_file
+        return send_file(model_path, mimetype='application/octet-stream')
+    except Exception as e:
+        logging.error(f"Failed to export model {model_filename}: {str(e)}")
+        return jsonify({"error": f"Failed to export model: {str(e)}"}), 500
 
 # 报告管理相关API接口
 @app.route('/reports/<report_filename>', methods=['DELETE'])
@@ -632,6 +648,7 @@ def train_model():
         except Exception as e:
             yield json.dumps({"error": f"训练接口异常: {str(e)}"}) + '\n'
     return Response(stream_with_context(stream_train()), mimetype='text/plain')
+
 
 if __name__ == '__main__':
     app.run(debug=True)

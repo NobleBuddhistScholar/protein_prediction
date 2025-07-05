@@ -557,6 +557,7 @@ class ProteinClassifier:
         os.makedirs(result_save_path, exist_ok=True)
         for record in SeqIO.parse(fasta_file, "fasta"):
             dna_seq = str(record.seq).upper()
+            print(dna_seq)
             orfs = advanced_orf_detection(dna_seq, min_protein_length // 3, molecule_type)
             
             predictions = []
@@ -695,28 +696,28 @@ class ProteinClassifier:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
 if __name__ == "__main__":
-    # # 测试模型标注
-    # classifier = ProteinClassifier.load(model_path='model/HybridModel_v1.pth', model='HybridModel')
-    # genome_result = classifier.predict_genome(
-    #     "prectice_test/TS000000.fasta", 
-    #     result_save_path="test_results",
-    #     min_confidence=0.7,
-    #     min_protein_length=100,
-    #     molecule_type='DNA'
-    # )
-    # print(json.dumps(genome_result, indent=2, ensure_ascii=False))
-
-    # 测试模型训练
-    config = {
-        'max_length': 10000,
-        'batch_size': 32,
-        'epochs': 2,
-        'learning_rate': 1e-4
-    }
-    classifier = ProteinClassifier.per_train_load(model_path='model/HybridModel_v1.pth',config=config,model_info_path='model/HybridModel_v1.json', model='HybridModel')
-    classifier.train(
-        train_data_path="train_data_tt",
-        save_path="HybridModel_v2.pth",
-        json_path="HybridModel_v2.json",
-        val_ratio=0.2
+    # 测试模型标注
+    classifier = ProteinClassifier.load(model_path='model/HybridModel_v1.pth', model='HybridModel')
+    genome_result = classifier.predict_genome(
+        "prectice_test/TS000000.fasta", 
+        result_save_path="test_results",
+        min_confidence=0.7,
+        min_protein_length=100,
+        molecule_type='DNA'
     )
+    print(json.dumps(genome_result, indent=2, ensure_ascii=False))
+
+    # # 测试模型训练
+    # config = {
+    #     'max_length': 10000,
+    #     'batch_size': 32,
+    #     'epochs': 2,
+    #     'learning_rate': 1e-4
+    # }
+    # classifier = ProteinClassifier.per_train_load(model_path='model/HybridModel_v1.pth',config=config,model_info_path='model/HybridModel_v1.json', model='HybridModel')
+    # classifier.train(
+    #     train_data_path="train_data_tt",
+    #     save_path="HybridModel_v2.pth",
+    #     json_path="HybridModel_v2.json",
+    #     val_ratio=0.2
+    # )

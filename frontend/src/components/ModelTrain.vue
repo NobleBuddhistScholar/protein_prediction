@@ -269,7 +269,7 @@ export default {
 
 <style scoped>
 .container {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 2rem 1.5rem;
   font-family: 'Segoe UI', 'Arial', sans-serif;

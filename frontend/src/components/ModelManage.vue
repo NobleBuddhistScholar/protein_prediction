@@ -52,9 +52,6 @@
         </div>
         
         <div class="model-card-body">
-          <div class="model-description">
-            {{ model.description || '暂无描述' }}
-          </div>
           <div class="model-filename">
             <i class="fa-solid fa-file"></i> {{ model.filename }}
           </div>
@@ -412,26 +409,29 @@ export default {
     
     async exportModel(filename) {
       this.setActionLoading(filename, true);
-      
       try {
         const response = await fetch(`${API_BASE_URL}/models/${filename}/export`);
         if (!response.ok) {
           throw new Error(`导出失败: ${response.statusText}`);
         }
-        
+        // 兼容所有环境的文件名提取
+        const contentDisposition = response.headers.get('content-disposition');
+        let serverFilename = filename;
+        if (contentDisposition && contentDisposition.indexOf('filename=') !== -1) {
+          const tmp = contentDisposition.split('filename=')[1];
+          serverFilename = tmp ? tmp.replace(/"/g, '') : filename;
+        }
         // 创建下载链接
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = filename;
+        a.download = serverFilename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        
         this.showNotification('模型导出成功', 'success');
-        
       } catch (error) {
         console.error('导出模型失败:', error);
         this.showNotification('导出失败: ' + error.message, 'error');
@@ -489,9 +489,9 @@ export default {
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
-  font-family: 'Arial', sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 2.5rem 1.5rem 2rem 1.5rem;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
   min-height: 100vh;
 }
 
@@ -500,46 +500,52 @@ export default {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(90deg, #e3f0ff 60%, #f5f7fa 100%);
+  border-radius: 18px;
+  padding: 1.8rem;
+  box-shadow: 0 4px 18px rgba(80,120,200,0.10);
 }
 
 .section-title {
   color: #2c3e50;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.7rem;
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 600;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .section-title i {
-  color: #3498db;
-  font-size: 2rem;
+  color: #4a89dc;
+  font-size: 2.1rem;
 }
 
 .refresh-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #3498db, #2980b9);
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  font-size: 1.05rem;
   font-weight: 500;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 10px rgba(52, 152, 219, 0.3);
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(52, 152, 219, 0.4);
+  background: linear-gradient(135deg, #3a79cc, #5cc5dd);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74,137,220,0.25);
 }
 
 .refresh-btn:disabled {
-  opacity: 0.7;
+  background: #b0c4de;
   cursor: not-allowed;
   transform: none;
 }
@@ -549,10 +555,10 @@ export default {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
-  background: white;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
 }
 
 .search-container {
@@ -566,49 +572,56 @@ export default {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #7f8c8d;
+  color: #4a89dc;
   font-size: 1rem;
 }
 
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.5rem;
-  border: 2px solid #ecf0f1;
-  border-radius: 25px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  background: #f8f9fa;
+  border: 1.5px solid #b0c4de;
+  border-radius: 10px;
+  font-size: 1.08rem;
+  font-weight: 500;
+  color: #34495e;
+  transition: all 0.3s;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #3498db;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 3px rgba(74,137,220,0.1);
+  transform: translateY(-1px);
 }
 
 .model-count {
-  color: #7f8c8d;
-  font-weight: 500;
-  font-size: 0.95rem;
+  color: #34495e;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
 }
 
 .loading-section, .error-section {
   text-align: center;
   padding: 3rem;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
 }
 
 .loading-section {
-  color: #3498db;
-  font-size: 1.1rem;
+  color: #4a89dc;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
 .error-section {
   color: #e74c3c;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 500;
+  background: rgba(231, 76, 60, 0.05);
 }
 
 .model-grid {
@@ -619,16 +632,17 @@ export default {
 
 .model-card {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  border: none;
 }
 
 .model-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(74,137,220,0.15);
 }
 
 .model-card-header {
@@ -636,7 +650,7 @@ export default {
   align-items: center;
   gap: 1rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2b5694 0%, #3a6cb9 100%);
   color: white;
 }
 
@@ -649,61 +663,69 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .model-info h3 {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .model-type {
   margin: 0.25rem 0 0 0;
   opacity: 0.9;
   font-size: 0.9rem;
+  letter-spacing: 0.2px;
 }
 
 .model-card-body {
-  padding: 1.5rem;
+  padding: 1.8rem;
 }
 
 .model-description {
-  color: #5a6c7d;
+  color: #34495e;
   margin-bottom: 1rem;
-  line-height: 1.5;
+  line-height: 1.6;
   min-height: 2.5rem;
+  font-size: 1.05rem;
 }
 
 .model-filename {
-  color: #7f8c8d;
-  font-size: 0.85rem;
+  color: #4a89dc;
+  font-size: 0.98rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-family: 'Monaco', 'Courier New', monospace;
-  background: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 6px;
+  background: rgba(74,137,220,0.1);
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .model-card-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  padding: 0 1.5rem 1.5rem;
+  gap: 0.8rem;
+  padding: 0.5rem 1.8rem 1.8rem;
 }
 
 .action-btn {
-  padding: 0.75rem;
+  padding: 0.7rem;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.08);
   gap: 0.5rem;
 }
 
@@ -757,13 +779,15 @@ export default {
   text-align: center;
   padding: 4rem 2rem;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 8px 30px rgba(80,120,200,0.1);
+  border: 1px solid rgba(80,120,200,0.05);
 }
 
 .empty-state i {
   font-size: 4rem;
-  color: #bdc3c7;
+  color: #4a89dc;
+  opacity: 0.4;
   margin-bottom: 1rem;
 }
 
@@ -813,7 +837,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4a89dc 0%, #5b9dff 100%);
   color: white;
   border-radius: 16px 16px 0 0;
 }
@@ -854,18 +878,22 @@ export default {
   grid-template-columns: 140px 1fr;
   gap: 1rem;
   align-items: start;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-radius: 8px;
+  padding: 0.9rem;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(80,120,200,0.05);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
 }
 
 .detail-item label {
   font-weight: 600;
   color: #2c3e50;
+  letter-spacing: 0.3px;
 }
 
 .detail-item span {
-  color: #5a6c7d;
+  color: #34495e;
+  font-weight: 500;
 }
 
 .status-yes {
@@ -880,30 +908,45 @@ export default {
 
 .config-section {
   grid-column: 1 / -1;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
+  background: linear-gradient(90deg, #f8fafd 80%, #f0f7ff 100%);
+  border-radius: 12px;
+  padding: 1.2rem;
+  border: 1px solid rgba(80,120,200,0.08);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
 }
 
 .config-section h4 {
   color: #2c3e50;
-  margin-bottom: 1rem;
+  margin-bottom: 1.2rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(80,120,200,0.1);
 }
 
 .config-data {
-  background: #2c3e50;
-  color: #ecf0f1;
-  padding: 1rem;
+  background: #2d3748;
+  color: #e2e8f0;
+  padding: 1.2rem;
   border-radius: 8px;
   font-family: 'Monaco', 'Courier New', monospace;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
   overflow-x: auto;
   max-height: 300px;
   overflow-y: auto;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+  border: 1px solid #4a5568;
 }
 
 .loading-details {
   text-align: center;
-  padding: 2rem;
-  color: #3498db;
+  padding: 2.5rem;
+  color: #4a89dc;
+  font-size: 1.05rem;
+  font-weight: 500;
 }
 
 .form-group {
@@ -912,32 +955,43 @@ export default {
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.6rem;
   font-weight: 600;
   color: #2c3e50;
+  font-size: 1.05rem;
+  letter-spacing: 0.3px;
 }
 
 .current-name {
-  color: #7f8c8d;
+  color: #34495e;
   font-family: 'Monaco', 'Courier New', monospace;
-  background: #f8f9fa;
-  padding: 0.5rem;
-  border-radius: 4px;
+  background: rgba(74,137,220,0.08);
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
   display: inline-block;
+  border: 1px solid rgba(74,137,220,0.15);
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .rename-input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #ecf0f1;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
+  width: 90%;
+  padding: 1rem 1rem;
+  border: 1.5px solid #b0c4de;
+  border-radius: 10px;
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: #34495e;
+  transition: all 0.3s;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
 }
 
 .rename-input:focus {
   outline: none;
-  border-color: #3498db;
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 3px rgba(74,137,220,0.1);
+  transform: translateY(-1px);
 }
 
 .input-hint {
@@ -969,18 +1023,24 @@ export default {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3498db, #2980b9);
+  background: linear-gradient(135deg, #4a89dc, #5b9dff);
   color: white;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.15);
+  font-weight: 500;
 }
 
 .btn-secondary {
-  background: #95a5a6;
+  background: linear-gradient(135deg, #8fa6c2, #a1b5d0);
   color: white;
+  box-shadow: 0 2px 8px rgba(143,166,194,0.15);
+  font-weight: 500;
 }
 
 .btn-danger {
   background: linear-gradient(135deg, #e74c3c, #c0392b);
   color: white;
+  box-shadow: 0 2px 8px rgba(231,76,60,0.15);
+  font-weight: 500;
 }
 
 .btn:hover:not(:disabled) {
