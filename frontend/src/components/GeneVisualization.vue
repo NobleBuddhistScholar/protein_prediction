@@ -141,11 +141,29 @@
             </div>
           </div>
         </div>
+        <!-- TXT报告模态框 -->
+        <div v-if="showTxtReportModal" class="modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">TXT 分析报告</h3>
+              <button class="modal-download" @click="downloadTxtReport">
+                <i class="fa-solid fa-download"></i> 下载
+              </button>
+              <span class="close" @click="closeTxtReportModal">&times;</span>
+            </div>
+            <div class="report-content" v-html="formatContent(txtReportContent)"></div>
+          </div>
+        </div>
         <!-- GFF报告模态框 -->
         <div v-if="showGffReportModal" class="modal">
           <div class="modal-content">
-            <span class="close" @click="closeGffReportModal">&times;</span>
-            <h3 class="modal-title">GFF报告</h3>
+            <div class="modal-header">
+              <h3 class="modal-title">GFF报告</h3>
+              <button class="modal-download" @click="downloadGffReport">
+                <i class="fa-solid fa-download"></i> 下载
+              </button>
+              <span class="close" @click="closeGffReportModal">&times;</span>
+            </div>
             <div class="gff-modal-content" v-html="gffReport"></div>
           </div>
         </div>
@@ -222,7 +240,11 @@ export default {
       uploadError: null, // 初始化uploadError
       // 新增模型选择相关状态
       selectedModelFile: 'HyperFusionCortex_v1.pth', // 默认选择的模型
-      modelOptions: [] // 模型选项列表
+      modelOptions: [], // 模型选项列表
+      // 新增：TXT报告模态框显示状态
+      showTxtReportModal: false,
+      // 新增：TXT报告内容
+      txtReportContent: ''
     };
   },
   computed: {
@@ -455,86 +477,50 @@ export default {
       return match ? [match[1], match[2]] : ['', ''];
     },
 
-    // 获取TXT报告并显示为模态框
+    // 获取TXT报告并显示为模态框（数据驱动）
     async showReportModal() {
       if (!this.geneData) {
         alert('没有基因组数据，无法显示报告');
         return;
       }
-      
-      // 创建模态框（临时添加到DOM）
-      const modal = document.createElement('div');
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      modal.style.position = 'fixed';
-      modal.style.top = '0';
-      modal.style.left = '0';
-      modal.style.width = '100%';
-      modal.style.height = '100%';
-      modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-      modal.style.zIndex = '2000';
-      modal.style.justifyContent = 'center';
-      modal.style.alignItems = 'center';
-      
-      const modalContent = document.createElement('div');
-      modalContent.className = 'modal-content';
-      modalContent.style.backgroundColor = 'white';
-      modalContent.style.padding = '2rem';
-      modalContent.style.borderRadius = '12px';
-      modalContent.style.width = '80%';
-      modalContent.style.maxWidth = '700px';
-      modalContent.style.maxHeight = '80vh';
-      modalContent.style.overflowY = 'auto';
-      
-      const title = document.createElement('h3');
-      title.textContent = 'TXT 分析报告';
-      title.className = 'modal-title';
-      
-      const closeBtn = document.createElement('span');
-      closeBtn.innerHTML = '&times;';
-      closeBtn.className = 'close';
-      closeBtn.style.position = 'absolute';
-      closeBtn.style.right = '1.5rem';
-      closeBtn.style.top = '1.5rem';
-      closeBtn.style.fontSize = '1.8rem';
-      closeBtn.style.cursor = 'pointer';
-      closeBtn.onclick = () => document.body.removeChild(modal);
-      
-      const content = document.createElement('div');
-      content.className = 'report-content';
-      content.innerHTML = '<div class="loading">正在加载报告...</div>';
-      
-      modalContent.appendChild(title);
-      modalContent.appendChild(closeBtn);
-      modalContent.appendChild(content);
-      modal.appendChild(modalContent);
-      document.body.appendChild(modal);
-      
       try {
-        // 从geneData中获取genome_id
         const genome_id = this.geneData.metadata.genome_id;
-        
-        // 生成当前日期
         const current_date = new Date().toISOString().split('T')[0];
-        
-        // 获取报告
         const url = `http://localhost:5000/summary?genome_id=${genome_id}&current_date=${current_date}`;
         const response = await fetch(url);
-        
         if (!response.ok) throw new Error('报告获取失败');
-        
         const reportData = await response.json();
         const reportContent = reportData[Object.keys(reportData)[0]];
-        
-        // 显示报告内容（独立于AI流式报告）
-        content.innerHTML = this.formatContent(reportContent);
-        
+        this.txtReportContent = reportContent;
+        this.showTxtReportModal = true;
+        // 解析文件名
+        this.reportInfo = {
+          genome_id,
+          report_date: current_date
+        };
       } catch (error) {
         console.error('TXT报告加载失败:', error);
-        content.innerHTML = `<div class="error">无法加载报告内容：${error.message}</div>`;
+        this.txtReportContent = `无法加载报告内容：${error.message}`;
+        this.showTxtReportModal = true;
       }
     },
-
+    // 关闭TXT报告模态框
+    closeTxtReportModal() {
+      this.showTxtReportModal = false;
+    },
+    // 下载TXT报告
+    downloadTxtReport() {
+      if (!this.txtReportContent) return;
+      const { genome_id, report_date } = this.reportInfo;
+      const filename = `${genome_id || 'report'}_基因组分析报告_${report_date || ''}.txt`;
+      const blob = new Blob([this.txtReportContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
     async openGffReportModal() {
     this.showGffReportModal = true;
     this.isGeneratingGff = true;
@@ -764,11 +750,13 @@ export default {
         // 新增下载GFF报告的方法
     downloadGffReport() {
       if (this.gffReport) {
+        const { genome_id, report_date } = this.reportInfo;
+        const filename = `${genome_id || 'gff'}_annotation_${report_date || ''}.gff`;
         const blob = new Blob([this.gffReport], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'gff_report.gff';
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -1597,13 +1585,13 @@ input[type="text"] {
 }
 
 /* 表格样式优化 */
-.ai-report-panel-body .summary-table {
+.ai-report-panel_body .summary-table {
   margin: 15px 0;
   width: 100%;
   border-collapse: collapse;
 }
 
-.ai-report-panel-body .summary-table th {
+.ai-report-panel_body .summary-table th {
   background-color: #4a89dc;
   color: white;
   padding: 8px;
@@ -1611,8 +1599,46 @@ input[type="text"] {
   font-weight: normal;
 }
 
-.ai-report-panel-body .summary-table td {
+.ai-report-panel_body .summary-table td {
   padding: 6px 8px;
   border: 1px solid #ddd;
+}
+
+/* 模态框头部统一布局 */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.modal-title {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #2c3e50;
+}
+.modal-download {
+  background: #4a89dc;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background 0.2s;
+}
+.modal-download:hover {
+  background: #3b7dd8;
+}
+.close {
+  font-size: 1.8rem;
+  color: #888;
+  cursor: pointer;
+  margin-left: 1rem;
 }
 </style>

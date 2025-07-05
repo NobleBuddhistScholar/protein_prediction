@@ -231,6 +231,7 @@
 </template>
 
 <script>
+import { API_BASE_URL } from '../config.js';
 export default {
   data() {
     return {
@@ -298,7 +299,7 @@ export default {
       this.error = null;
       
       try {
-        const response = await fetch('http://localhost:5000/models');
+        const response = await fetch(`${API_BASE_URL}/models`);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -322,7 +323,7 @@ export default {
       this.setActionLoading(filename, true);
       
       try {
-        const response = await fetch(`http://localhost:5000/models/${filename}/details`);
+        const response = await fetch(`${API_BASE_URL}/models/${filename}/details`);
         if (!response.ok) {
           throw new Error(`获取模型详情失败: ${response.statusText}`);
         }
@@ -350,7 +351,7 @@ export default {
       this.renaming = true;
       
       try {
-        const response = await fetch(`http://localhost:5000/models/${this.selectedModel.filename}/rename`, {
+        const response = await fetch(`${API_BASE_URL}/models/${this.selectedModel.filename}/rename`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -388,7 +389,7 @@ export default {
       this.deleting = true;
       
       try {
-        const response = await fetch(`http://localhost:5000/models/${this.selectedModel.filename}`, {
+        const response = await fetch(`${API_BASE_URL}/models/${this.selectedModel.filename}`, {
           method: 'DELETE'
         });
         
@@ -413,7 +414,7 @@ export default {
       this.setActionLoading(filename, true);
       
       try {
-        const response = await fetch(`http://localhost:5000/models/${filename}/export`);
+        const response = await fetch(`${API_BASE_URL}/models/${filename}/export`);
         if (!response.ok) {
           throw new Error(`导出失败: ${response.statusText}`);
         }

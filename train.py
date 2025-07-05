@@ -17,12 +17,11 @@ from model import HybridModel,MSA_ResGRUNet,HyperFusionCortex
 import os
 
 class ProteinClassifier:
-    def __init__(self, config: Optional[dict] = None, label_map: Optional[dict] = None,train_model = 'HybridModel'):
+    def __init__(self, config: Optional[dict] = None, label_map: Optional[dict] = None,model_info: Optional[dict] = None,train_model = 'HybridModel'):
         self.config = config or {
             'max_length': 10000,
             'batch_size': 32,
-            'epochs': 50,
-            'threshold': 0.5,
+            'epochs': 10,
             'learning_rate': 1e-4
         }
         self.label_map = label_map or {
@@ -31,6 +30,23 @@ class ProteinClassifier:
             "NSP4": 10, "NSP5": 11, "NSP6": 12, "NSP7": 13, "NSP8": 14,
             "NSP9": 15, "envelope_protein": 16, "membrane_protein": 17,
             "nucleocapsid_protein": 18, "spike_protein": 19
+        }
+        #模型信息
+        self.model_info = model_info or {
+            "model_type": train_model,
+            "data_set":"",
+            "evaluate": {
+                "epoch": 0.0,
+                "train_loss": 0.0,
+                "train_accuracy": 0.0,
+                "train_auc": 0.0,
+                "train_f1_macro": 0.0,
+                "val_loss": 0.0,
+                "val_accuracy": 0.0,
+                "val_auc": 0.0,
+                "val_f1_macro": 0.0,
+                "learning_rate": self.config['learning_rate']
+            }
         }
 
         self.encoder = SequenceEncoder(self.config['max_length'])
@@ -65,8 +81,10 @@ class ProteinClassifier:
         y = self._create_label_matrix(labels)
         return X, y
 
-    def train(self, train_data_path: str,save_path: str = "protein_classifier.pth", val_ratio: float = 0.2):
-        """训练模型"""
+    def train(self, train_data_path: str, save_path: str = "protein_classifier.pth", json_path: str = "protein_classifier.json", val_ratio: float = 0.2, epoch_callback=None):
+        """训练模型，支持每个epoch结束后回调/流式输出评估信息"""
+        # 更新模型信息
+        self.model_info['data_set'] = train_data_path
         # 加载训练数据
         train_sequences, train_labels = parse_fasta(train_data_path)
         translated_train = [translate_dna_to_protein(seq) for seq in train_sequences]
@@ -170,11 +188,30 @@ class ProteinClassifier:
                 f"F1(macro): {val_metrics['f1_macro']:.4f}"
                 f"\n  Learning Rate: {optimizer.param_groups[0]['lr']:.2e}"
             )
-            
+            # 新增：每个epoch后回调/产出评估信息
+            epoch_info = {
+                "epoch": epoch + 1,
+                "train": train_metrics,
+                "val": val_metrics,
+                "learning_rate": optimizer.param_groups[0]['lr']
+            }
+            if epoch_callback:
+                epoch_callback(epoch_info)
             # Early stopping
             if val_metrics['accuracy'] > best_acc:
                 best_acc = val_metrics['accuracy']
-                self.save(save_path, "config.json")
+                # 保存最佳模型
+                self.model_info['evaluate']['epoch'] = epoch + 1
+                self.model_info['evaluate']['train_loss'] = train_metrics['loss']
+                self.model_info['evaluate']['train_accuracy'] = train_metrics['accuracy']
+                self.model_info['evaluate']['train_auc'] = train_metrics['auc']
+                self.model_info['evaluate']['train_f1_macro'] = train_metrics['f1_macro']
+                self.model_info['evaluate']['val_loss'] = val_metrics['loss']
+                self.model_info['evaluate']['val_accuracy'] = val_metrics['accuracy']
+                self.model_info['evaluate']['val_auc'] = val_metrics['auc']
+                self.model_info['evaluate']['val_f1_macro'] = val_metrics['f1_macro']
+                self.model_info['evaluate']['learning_rate'] = optimizer.param_groups[0]['lr']
+                self.save(save_path, json_path)
                 early_stop_counter = 0
             else:
                 early_stop_counter += 1
@@ -326,15 +363,61 @@ class ProteinClassifier:
             'label_map': self.label_map,
             'max_length': self.encoder.max_length
         }, model_path)
-        
+        with open(config_path, 'w') as f:
+            json.dump(self.model_info, f, indent=4)
+
+    # 加载预训练模型
+    @classmethod
+    def per_train_load(cls, model_path: str, config = None,model = 'HybridModel' , model_info_path: str = "protein_classifier.json"):
+        """加载预训练模型"""
+        # 检查 CUDA 是否可用，如果不可用则将模型加载到 CPU 上
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        checkpoint = torch.load(model_path, map_location=device)
+        config = config or {
+            'max_length': 10000,
+            'batch_size': 32,
+            'epochs': 10,
+            'learning_rate': 1e-4
+        }
+        classifier = cls(config=config, label_map=checkpoint['label_map'])
+        classifier.encoder.max_length = checkpoint['max_length']
+        # 加载模型信息
+        with open(model_info_path, 'r') as f:
+            classifier.model_info = json.load(f)
+        if model == 'HybridModel':
+            classifier.model = HybridModel(
+                vocab_size=23,
+                embedding_dim=128,
+                num_classes=len(checkpoint['label_map'])
+            ).to(classifier.device)
+            classifier.model.load_state_dict(checkpoint['model_state'])
+            return classifier
+        elif model == 'MSA_ResGRUNet':
+            classifier.model = MSA_ResGRUNet(
+                vocab_size=23,
+                embedding_dim=128,
+                num_classes=len(checkpoint['label_map'])
+            ).to(classifier.device)
+            classifier.model.load_state_dict(checkpoint['model_state'])
+        elif model == 'HyperFusionCortex':
+            classifier.model = HyperFusionCortex(
+                vocab_size=23,
+                embedding_dim=128,
+                num_classes=len(checkpoint['label_map'])
+            ).to(classifier.device)
+            classifier.model.load_state_dict(checkpoint['model_state'])            
+            return classifier       
+
+    # 加载注释模型
     @classmethod
     def load(cls, model_path: str, model = 'HybridModel'):
-        """加载预训练模型"""
+        """加载标注模型"""
         # 检查 CUDA 是否可用，如果不可用则将模型加载到 CPU 上
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         checkpoint = torch.load(model_path, map_location=device)
         classifier = cls(config=checkpoint['config'], label_map=checkpoint['label_map'])
         classifier.encoder.max_length = checkpoint['max_length']
+
         if model == 'HybridModel':
             classifier.model = HybridModel(
                 vocab_size=23,
@@ -546,6 +629,8 @@ class ProteinClassifier:
                     } for p in final_preds
                 ]
             }
+            with open(f"{result_save_path}/{record.id}_annotation.json", "w") as f:
+                json.dump(output, f, indent=2, ensure_ascii=False)
             
         return output
 
@@ -609,3 +694,29 @@ class ProteinClassifier:
         plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
+if __name__ == "__main__":
+    # # 测试模型标注
+    # classifier = ProteinClassifier.load(model_path='model/HybridModel_v1.pth', model='HybridModel')
+    # genome_result = classifier.predict_genome(
+    #     "prectice_test/TS000000.fasta", 
+    #     result_save_path="test_results",
+    #     min_confidence=0.7,
+    #     min_protein_length=100,
+    #     molecule_type='DNA'
+    # )
+    # print(json.dumps(genome_result, indent=2, ensure_ascii=False))
+
+    # 测试模型训练
+    config = {
+        'max_length': 10000,
+        'batch_size': 32,
+        'epochs': 2,
+        'learning_rate': 1e-4
+    }
+    classifier = ProteinClassifier.per_train_load(model_path='model/HybridModel_v1.pth',config=config,model_info_path='model/HybridModel_v1.json', model='HybridModel')
+    classifier.train(
+        train_data_path="train_data_tt",
+        save_path="HybridModel_v2.pth",
+        json_path="HybridModel_v2.json",
+        val_ratio=0.2
+    )

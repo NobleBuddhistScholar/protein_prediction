@@ -6,67 +6,115 @@
       </h2>
     </div>
 
-    <!-- 选择模型 -->
-    <div class="form-row card">
-      <label class="form-label">选择模型：</label>
-      <select v-model="selectedModel" class="form-select">
-        <option disabled value="">请选择模型</option>
-        <option v-for="model in modelList" :key="model" :value="model">{{ model }}</option>
-      </select>
+    <!-- 选择模型和上传数据集（一行显示） -->
+    <div class="form-row-flex card">
+      <div class="form-col">
+        <label class="form-label">选择已有模型（可选）：</label>
+        <select v-model="selectedModel" class="form-select">
+          <option value="">不使用预训练</option>
+          <option v-for="model in modelList" :key="model" :value="model">{{ model }}</option>
+        </select>
+      </div>
+      
+      <div class="form-divider"></div>
+      
+      <div class="form-col">
+        <label class="form-label">上传数据集：</label>
+        <div class="file-upload-container">
+          <label for="file-upload" class="file-upload-btn">
+            <i class="fa-solid fa-cloud-upload-alt"></i> 选择文件
+          </label>
+          <input id="file-upload" type="file" @change="handleFileChange" class="form-file" accept=".fasta,.fa" webkitdirectory multiple />
+          <span v-if="fileName" class="file-name">{{ fileName }}</span>
+        </div>
+      </div>
     </div>
 
-    <!-- 上传数据集 -->
-    <div class="form-row card">
-      <label class="form-label">上传数据集：</label>
-      <input type="file" @change="handleFileChange" class="form-file" accept=".fasta,.fa" webkitdirectory multiple />
-      <span v-if="fileName" class="file-name">{{ fileName }}</span>
+    <!-- 训练参数输入区 -->
+    <div class="form-row card" style="flex-wrap: wrap; gap: 1.5rem;">
+      <div>
+        <label>max_length：</label>
+        <input v-model.number="form.max_length" type="number" min="100" max="100000" step="100" class="input-beauty" style="width:90px" />
+      </div>
+      <div>
+        <label>batch_size：</label>
+        <input v-model.number="form.batch_size" type="number" min="1" max="1024" step="1" class="input-beauty" style="width:70px" />
+      </div>
+      <div>
+        <label>epochs：</label>
+        <input v-model.number="form.epochs" type="number" min="1" max="1000" step="1" class="input-beauty" style="width:60px" />
+      </div>
+      <div>
+        <label>learning_rate：</label>
+        <input v-model.number="form.learning_rate" type="number" min="0.00001" max="1" step="0.00001" class="input-beauty" style="width:90px" />
+      </div>
+      <div>
+        <label>val_ratio：</label>
+        <input v-model.number="form.val_ratio" type="number" min="0.01" max="0.99" step="0.01" class="input-beauty" style="width:60px" />
+      </div>
+    </div>
+    <!-- 模型名称输入单独一行 -->
+    <div class="model-name-row card">
+      <label class="form-label">新模型名：</label>
+      <input v-model="form.new_model_name" class="input-beauty model-name-input" placeholder="仅字母数字下划线" maxlength="32" />
     </div>
 
     <!-- 启动训练按钮 -->
     <div class="form-row card">
-      <button class="train-button gradient-btn" :disabled="!selectedModel || !fileName" @click="startTraining">
+      <button class="train-button gradient-btn" :disabled="!fileName || !form.new_model_name || isTraining" @click="startTraining">
         <i class="fa-solid fa-play"></i> 开始训练
       </button>
     </div>
 
     <!-- 训练进度 -->
-    <div v-if="isTraining" class="progress-container card">
-      <div class="progress-bar gradient-progress" :style="{ width: progress + '%' }"></div>
-      <span class="progress-text">{{ progress }}%</span>
+    <div v-if="isTraining" class="progress-container card progress-card-narrow">
+      <div class="progress-label">训练进度：<span class="progress-percent">{{ progress }}%</span></div>
+      <div class="progress-bar-container">
+        <div class="progress-bar gradient-progress" :style="{ width: progress + '%' }"></div>
+      </div>
+    </div>
+
+    <!-- 训练日志/曲线 -->
+    <div v-if="epochLogs.length" class="card log-card-narrow">
+      <h3 style="margin-bottom:1rem;">训练过程</h3>
+      <table v-if="epochLogs.length" class="train-log-table">
+        <thead>
+          <tr>
+            <th>Epoch</th>
+            <th>Train Loss</th>
+            <th>Train Acc</th>
+            <th>Val Loss</th>
+            <th>Val Acc</th>
+            <th>LR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="log in epochLogs" :key="log.epoch">
+            <td>{{ log.epoch }}</td>
+            <td>{{ log.train.loss.toFixed(4) }}</td>
+            <td>{{ (log.train.accuracy*100).toFixed(2) }}%</td>
+            <td>{{ log.val.loss.toFixed(4) }}</td>
+            <td>{{ (log.val.accuracy*100).toFixed(2) }}%</td>
+            <td>{{ log.learning_rate.toExponential(2) }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- 训练结果展示 -->
-    <div v-if="trainingFinished" class="result-section card">
-      <h3 class="result-title"><i class="fa-solid fa-chart-line"></i> 训练结果</h3>
-      <div class="metrics">
-        <div>准确率：{{ metrics.accuracy }}%</div>
-        <div>损失：{{ metrics.loss }}</div>
+    <div v-if="trainingFinished" class="result-section card result-section-beauty">
+      <div class="saved-tip saved-tip-beauty">
+        <i class="fa-solid fa-check-circle"></i>
+        <span>模型已自动保存为 <b>{{ form.new_model_name }}.pth</b> / <b>{{ form.new_model_name }}.json</b></span>
+        <button class="cancel-btn" @click="resetAll">关闭</button>
       </div>
-      <!-- 训练曲线图（占位） -->
-      <div class="chart-placeholder">
-        <span>训练曲线图（如loss/accuracy）</span>
-      </div>
-    </div>
-
-    <div v-if="trainDone && !modelSaved" class="save-section card">
-      <h3>训练已完成，是否保存模型？</h3>
-      <div class="save-input-row">
-        <input v-model="saveModelName" placeholder="请输入新模型名称（仅字母数字下划线）" class="save-input" maxlength="32" />
-        <button class="save-btn gradient-btn" :disabled="!saveModelName || isSaving" @click="uploadModel"><i class="fa-solid fa-upload"></i> 保存到模型库</button>
-        <button class="cancel-btn" @click="resetAll">放弃</button>
-      </div>
-      <div v-if="saveError" class="error-tip">{{ saveError }}</div>
-    </div>
-    <div v-if="modelSaved" class="saved-tip card">
-      <span><i class="fa-solid fa-check-circle"></i> 模型和配置已保存！</span>
-      <button class="download-btn gradient-btn" @click="downloadModel"><i class="fa-solid fa-download"></i> 下载到本地</button>
-      <button class="cancel-btn" @click="resetAll">关闭</button>
     </div>
     <div v-if="errorMsg" class="error-tip card"><i class="fa-solid fa-exclamation-triangle"></i> {{ errorMsg }}</div>
   </div>
 </template>
 
 <script>
+import { API_BASE_URL } from '../config.js';
 export default {
   data() {
     return {
@@ -83,115 +131,116 @@ export default {
       progress: 0,
       trainingFinished: false,
       metrics: {
-        accuracy: 98.5,
-        loss: 0.023
+        accuracy: '--',
+        loss: '--'
       },
-      saveModelName: '',
-      isSaving: false,
-      saveError: '',
-      savedPth: '',
-      savedJson: '',
-      fileList: []
+      fileList: [],
+      errorMsg: '',
+      modelBin: null,
+      modelJson: null,
+      epochLogs: [],
+      form: {
+        max_length: 10000,
+        batch_size: 32,
+        epochs: 10,
+        learning_rate: 0.0001,
+        val_ratio: 0.2,
+        new_model_name: ''
+      }
     };
   },
   methods: {
     handleFileChange(e) {
       const files = Array.from(e.target.files);
       this.fileList = files;
-      this.fileObj = files.length > 0 ? files : null;
       this.fileName = files.length > 0 ? `已选择${files.length}个文件` : '';
     },
-    startTraining() {
+    async startTraining() {
       this.isTraining = true;
       this.progress = 0;
-      this.evalRows = [];
-      this.trainDone = false;
-      this.modelSaved = false;
-      this.modelBin = null;
-      this.modelJson = null;
+      this.trainingFinished = false;
       this.errorMsg = '';
+      this.metrics = { accuracy: '--', loss: '--' };
+      this.epochLogs = [];
       // 构造FormData
       const formData = new FormData();
       if (this.fileList && this.fileList.length > 0) {
         this.fileList.forEach(f => formData.append('file', f));
       }
-      formData.append('model_type', this.selectedModel.replace('.pth', '').replace('_v1','').replace('_protein_classifier',''));
-      if (this.hyperparams) {
-        Object.entries(this.hyperparams).forEach(([k, v]) => formData.append(k, v));
+      if (this.selectedModel) {
+        formData.append('pretrain_model', this.selectedModel);
       }
-      const url = 'http://localhost:5000/train_model';
-      fetch(url, {
-        method: 'POST',
-        body: formData
-      }).then(async res => {
-        const data = await res.json();
-        if (data.error) {
-          this.errorMsg = data.error;
-          this.isTraining = false;
-          return;
+      formData.append('model_type', this.selectedModel ? this.selectedModel.replace('.pth', '').replace('_v1','').replace('_protein_classifier','') : 'HybridModel');
+      formData.append('max_length', this.form.max_length);
+      formData.append('batch_size', this.form.batch_size);
+      formData.append('epochs', this.form.epochs);
+      formData.append('learning_rate', this.form.learning_rate);
+      formData.append('val_ratio', this.form.val_ratio);
+      formData.append('new_model_name', this.form.new_model_name);
+      try {
+        const url = `${API_BASE_URL}/train_model`;
+        const res = await fetch(url, {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.body) throw new Error('No response body');
+        const reader = res.body.getReader();
+        let buffer = '';
+        let done = false;
+        let totalEpochs = this.form.epochs;
+        while (!done) {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
+          if (value) {
+            buffer += new TextDecoder().decode(value);
+            let lines = buffer.split('\n');
+            buffer = lines.pop(); // 最后一行可能不完整
+            for (let line of lines) {
+              if (!line.trim()) continue;
+              let data;
+              try { data = JSON.parse(line); } catch { continue; }
+              if (data.type === 'epoch') {
+                this.epochLogs.push(data);
+                this.progress = Math.round((data.epoch / totalEpochs) * 100);
+              } else if (data.type === 'done') {
+                this.modelBin = data.model_bytes;
+                this.modelJson = data.model_json;
+                this.trainingFinished = true;
+                if (data.model_json && data.model_json.metrics) {
+                  this.metrics = {
+                    accuracy: data.model_json.metrics.accuracy || '--',
+                    loss: data.model_json.metrics.loss || '--'
+                  };
+                }
+                this.progress = 100;
+                this.isTraining = false;
+              } else if (data.error) {
+                this.errorMsg = data.error;
+                this.isTraining = false;
+                return;
+              }
+            }
+          }
         }
-        this.trainDone = true;
-        this.isTraining = false;
-        this.modelBin = data.model_bytes;
-        this.modelJson = data.model_json;
-        this.progress = 100;
-        this.trainingFinished = true;
-        // 可选：展示训练指标
-        if (data.model_json && data.model_json.metrics) {
-          this.metrics = {
-            accuracy: data.model_json.metrics.accuracy || '--',
-            loss: data.model_json.metrics.loss || '--'
-          };
-        }
-      }).catch(err => {
+      } catch (err) {
         this.errorMsg = '训练失败：' + err.message;
         this.isTraining = false;
-      });
-    },
-    uploadModel() {
-      this.isSaving = true;
-      this.saveError = '';
-      // 构造FormData
-      const formData = new FormData();
-      // 模型二进制转Blob
-      const bin = new Uint8Array(this.modelBin.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-      const blob = new Blob([bin], { type: 'application/octet-stream' });
-      formData.append('model_file', blob, this.saveModelName + '.pth');
-      formData.append('config_json', JSON.stringify(this.modelJson, null, 2));
-      formData.append('model_name', this.saveModelName);
-      fetch('http://localhost:5000/save_model', {
-        method: 'POST',
-        body: formData
-      }).then(async res => {
-        const data = await res.json();
-        if (!res.ok) {
-          this.saveError = data.error || '保存失败';
-          this.isSaving = false;
-          return;
-        }
-        this.modelSaved = true;
-        this.savedPth = data.pth;
-        this.savedJson = data.json;
-        this.isSaving = false;
-      }).catch(err => {
-        this.saveError = '保存失败：' + err.message;
-        this.isSaving = false;
-      });
+      }
+      this.isTraining = false;
     },
     downloadModel() {
-      // 下载pth
       if (!this.modelBin || !this.modelJson) return;
       const bin = new Uint8Array(this.modelBin.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
       const blob = new Blob([bin], { type: 'application/octet-stream' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = (this.saveModelName || this.modelJson.display_name || 'trained_model') + '.pth';
+      a.download = (this.form.new_model_name || 'trained_model') + '.pth';
       a.click();
       // 下载json
       const jsonBlob = new Blob([JSON.stringify(this.modelJson, null, 2)], { type: 'application/json' });
       const a2 = document.createElement('a');
       a2.href = URL.createObjectURL(jsonBlob);
-      a2.download = (this.saveModelName || this.modelJson.display_name || 'trained_model') + '.json';
+      a2.download = (this.form.new_model_name || 'trained_model') + '.json';
       a2.click();
     },
     resetAll() {
@@ -200,14 +249,19 @@ export default {
       this.isTraining = false;
       this.progress = 0;
       this.trainingFinished = false;
-      this.saveModelName = '';
-      this.isSaving = false;
-      this.saveError = '';
-      this.modelSaved = false;
-      this.savedPth = '';
-      this.savedJson = '';
+      this.form = {
+        max_length: 10000,
+        batch_size: 32,
+        epochs: 10,
+        learning_rate: 0.0001,
+        val_ratio: 0.2,
+        new_model_name: ''
+      };
       this.errorMsg = '';
-      this.trainDone = false; // 重置训练完成标志
+      this.modelBin = null;
+      this.modelJson = null;
+      this.epochLogs = [];
+      this.fileList = [];
     }
   }
 };
@@ -215,64 +269,168 @@ export default {
 
 <style scoped>
 .container {
-  max-width: 700px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 2rem;
-  font-family: 'Arial', sans-serif;
+  padding: 2.5rem 1.5rem 2rem 1.5rem;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
 }
 .gradient-bg {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
   min-height: 100vh;
 }
 .card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-  margin-bottom: 2rem;
-  padding: 2rem 1.5rem;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
+  margin-bottom: 2.2rem;
+  padding: 2.2rem 2rem 2rem 2rem;
+  border: none;
+}
+.header-section.card {
+  background: linear-gradient(90deg, #e3f0ff 60%, #f5f7fa 100%);
+  box-shadow: 0 4px 18px rgba(80,120,200,0.10);
+  margin-bottom: 2.5rem;
+  padding: 2.2rem 2rem 1.2rem 2rem;
 }
 .section-title {
   color: #2c3e50;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.7rem;
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 600;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 .form-row {
   display: flex;
   align-items: center;
   margin-bottom: 1.5rem;
+  gap: 1.2rem;
+  background: #f8fafd;
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
+}
+.form-row-flex {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+  background: #f8fafd;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
+}
+.form-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.form-divider {
+  width: 1px;
+  align-self: stretch;
+  background: linear-gradient(to bottom, transparent, rgba(80,120,200,0.12), transparent);
+  margin: 0 0.5rem;
+}
+.file-upload-container {
+  display: flex;
+  align-items: center;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+.file-upload-btn {
+  background: linear-gradient(135deg, #4a89dc, #5b9dff);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.7rem 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.file-upload-btn:hover {
+  background: linear-gradient(135deg, #3a79cc, #4a8def);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74,137,220,0.3);
+}
+.form-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 .form-label {
-  min-width: 100px;
   color: #34495e;
+  font-weight: 600;
+  font-size: 1.08rem;
+  margin-bottom: 0.3rem;
+  display: block;
+  letter-spacing: 0.3px;
+}
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  border: 1.5px solid #b0c4de;
+  color: #34495e;
+  font-size: 1.08rem;
   font-weight: 500;
-}
-.form-select, .form-file {
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  border: 1.5px solid #e0e0e0;
-  font-size: 1rem;
-  background: #f8f9fa;
-  transition: border 0.3s;
-}
-.form-select:focus, .form-file:focus {
-  border-color: #4a89dc;
+  padding: 0.7rem 2.5rem 0.7rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
+  transition: all 0.3s;
   outline: none;
+  background-image: url('data:image/svg+xml;utf8,<svg fill="%234a89dc" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  background-size: 1.2rem;
+  min-width: 220px;
+  max-width: 100%;
+  cursor: pointer;
+}
+.form-select:focus, .form-select:hover {
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 2px rgba(74,137,220,0.2);
+  transform: translateY(-1px);
+}
+.form-row input[type=number], .form-row input[type=text] {
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  border: 1.5px solid #b0c4de;
+  color: #34495e;
+  font-size: 1.08rem;
+  font-weight: 500;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
+  transition: border 0.3s, box-shadow 0.3s;
+  outline: none;
+}
+.form-row input[type=number]:focus, .form-row input[type=text]:focus {
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 2px #b0c4de33;
 }
 .gradient-btn {
   background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 1.1rem;
+  font-size: 1.13rem;
   font-weight: 600;
-  padding: 0.8rem 2rem;
+  padding: 0.8rem 2.1rem;
   cursor: pointer;
   transition: background 0.3s;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.08);
 }
 .gradient-btn:disabled {
   background: #b0c4de;
@@ -282,13 +440,20 @@ export default {
   margin-right: 0.5rem;
 }
 .progress-container {
-  width: 100%;
-  height: 20px;
+  width: 600;
+  height: 22px;
   background-color: #e0e0e0;
-  border-radius: 10px;
+  border-radius: 12px;
   margin: 1.5rem 0;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
+}
+.progress-card-narrow {
+  max-width: 100%;
+  margin: 1.5rem auto;
+  padding: 1.1rem 0.7rem 1rem 0.7rem;
+  border-radius: 14px;
 }
 .gradient-progress {
   position: absolute;
@@ -301,79 +466,52 @@ export default {
 .progress-text {
   position: absolute;
   right: 10px;
-  top: -28px;
+  top: -22px;
   font-size: 1rem;
-  color: #7f8c8d;
-}
-.result-section {
-  margin-top: 2rem;
-  background: #f9f9f9;
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-.result-title {
-  color: #2c3e50;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.metrics {
-  font-size: 1.1rem;
-  margin-bottom: 1.5rem;
-  color: #34495e;
-}
-.chart-placeholder {
-  height: 220px;
-  background: #e0e0e0;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #7f8c8d;
-  font-size: 1.2rem;
-}
-.file-name {
   color: #4a89dc;
-  font-size: 0.95rem;
-  margin-left: 1rem;
+  font-weight: 600;
 }
-.save-section {
-  margin-top: 1.5rem;
-  padding: 1.5rem;
-  background: #f1f8e9;
+.train-log-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 1rem;
+  background: #fafdff;
   border-radius: 12px;
-  border: 1px solid #c8e6c9;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
 }
-.save-input-row {
+.result-section-beauty {
+  background: linear-gradient(120deg, #f5f7fa 60%, #e3f0ff 100%);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
+  padding: 2.2rem 2rem 2rem 2rem;
+  margin-top: 2rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  margin-top: 1.2rem;
   justify-content: center;
 }
-.save-input {
-  padding: 0.7rem 1.2rem;
-  border-radius: 8px;
-  border: 1.5px solid #b0c4de;
-  font-size: 1.05rem;
-  min-width: 220px;
+.saved-tip-beauty {
+  margin-top: 0;
+  background: linear-gradient(90deg, #e8f5e9 80%, #f1f8e9 100%);
+  border: 1.5px solid #b2dfdb;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(67,160,71,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 1.1rem 1.5rem;
+  font-size: 1.13rem;
 }
-.save-btn {
-  padding: 0.7rem 1.5rem;
-  background: linear-gradient(135deg, #4caf50, #43e97b);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+.saved-tip-beauty i.fa-check-circle {
+  color: #43a047;
+  font-size: 1.6rem;
+}
+.saved-tip-beauty span {
+  color: #388e3c;
   font-weight: 500;
-  transition: background 0.3s;
-}
-.save-btn:disabled {
-  background: #a5d6a7;
-  cursor: not-allowed;
 }
 .cancel-btn {
   padding: 0.7rem 1.5rem;
@@ -384,35 +522,22 @@ export default {
   cursor: pointer;
   font-weight: 500;
   transition: background 0.3s;
+  box-shadow: 0 2px 8px rgba(244,67,54,0.08);
 }
 .cancel-btn:hover {
   background: #e53935;
 }
-.saved-tip {
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: #e8f5e9;
-  border-radius: 12px;
-  border: 1px solid #c8e6c9;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.download-btn {
-  padding: 0.8rem 2rem;
-  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-right: 1.5rem;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-.download-btn:hover {
-  background: linear-gradient(135deg, #357ab8, #4a89dc);
+.file-name {
+  color: #4a89dc;
+  font-size: 0.98rem;
+  padding: 0.4rem 1rem;
+  background: rgba(74,137,220,0.1);
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  display: inline-block;
 }
 .error-tip {
   color: #e53935;
@@ -428,18 +553,243 @@ export default {
   gap: 0.5rem;
   justify-content: center;
 }
-@media (max-width: 768px) {
+.input-beauty {
+  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
+  border: 1.5px solid #b0c4de;
+  color: #34495e;
+  font-size: 1.08rem;
+  font-weight: 500;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
+  transition: border 0.3s, box-shadow 0.3s;
+  outline: none;
+}
+.input-beauty:focus {
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 2px #b0c4de33;
+}
+.model-name-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  background: #f8fafd;
+  border-radius: 12px;
+  padding: 1.1rem 1.2rem;
+  box-shadow: 0 2px 8px rgba(80,120,200,0.04);
+  margin-bottom: 1.5rem;
+}
+.model-name-input {
+  min-width: 220px;
+  max-width: 320px;
+  flex: 1;
+}
+/* 训练日志区专用样式 */
+.log-card-narrow {
+  max-width: 700px;
+  margin: 0 auto 1.8rem auto;
+  padding: 2rem 2rem 1.8rem 2rem;
+  border-radius: 14px;
+  overflow-x: auto; /* 添加水平滚动条 */
+  background: linear-gradient(145deg, #ffffff, #f8faff);
+  box-shadow: 0 10px 30px rgba(74, 137, 220, 0.1);
+  border: 1px solid rgba(74, 137, 220, 0.06);
+}
+
+.log-card-narrow h3 {
+  color: #2c3e50;
+  font-size: 1.4rem;
+  margin-bottom: 1.4rem;
+  text-align: center;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.log-card-narrow h3::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #4a89dc, transparent);
+}
+
+/* 强化表格宽度控制 */
+.log-card-narrow .train-log-table {
+  table-layout: fixed;
+  width: 100%;
+  max-width: 820px;
+  box-shadow: 0 4px 16px rgba(80,120,200,0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(80,120,200,0.07);
+  margin: 0 auto;
+}
+
+.log-card-narrow .train-log-table th,
+.log-card-narrow .train-log-table td {
+  padding: 0.85rem 0.6rem;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(80,120,200,0.05);
+}
+
+.log-card-narrow .train-log-table th {
+  background: linear-gradient(90deg, #4a89dc 0%, #5b9dff 100%);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 1rem 0.6rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  border-bottom: none;
+}
+
+.log-card-narrow .train-log-table tr:hover td {
+  background-color: #f0f7ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(74, 137, 220, 0.1);
+}
+
+/* 设置各列宽度 */
+.log-card-narrow .train-log-table th:nth-child(1),
+.log-card-narrow .train-log-table td:nth-child(1) {
+  width: 60px; /* Epoch列宽度 */
+}
+
+.log-card-narrow .train-log-table th:nth-child(2),
+.log-card-narrow .train-log-table td:nth-child(2) {
+  width: auto; /* Train Loss列宽度 */
+}
+
+.log-card-narrow .train-log-table th:nth-child(3),
+.log-card-narrow .train-log-table td:nth-child(3) {
+  width: auto; /* Val Loss列宽度 */
+}
+
+.log-card-narrow .train-log-table th:nth-child(4),
+.log-card-narrow .train-log-table td:nth-child(4) {
+  width: auto; /* Train Acc列宽度 */
+}
+
+.log-card-narrow .train-log-table th:nth-child(5),
+.log-card-narrow .train-log-table td:nth-child(5) {
+  width: auto; /* Val Acc列宽度 */
+}
+
+.log-card-narrow .train-log-table th:nth-child(6),
+.log-card-narrow .train-log-table td:nth-child(6) {
+  width: 80px; /* LR列宽度 */
+}
+
+.log-card-narrow .train-log-table tr:nth-child(even) td {
+  background-color: #f5f9ff;
+}
+
+.log-card-narrow .train-log-table tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+.log-card-narrow .train-log-table tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+.log-card-narrow .train-log-table tr:first-child th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.log-card-narrow .train-log-table tr:first-child th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* 进度条容器专用样式 */
+.progress-card-narrow {
+  max-width: 750px;
+  margin: 1.5rem auto;
+  padding: 1.8rem 2rem 1.5rem 2rem;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff, #f8faff);
+  box-shadow: 0 10px 30px rgba(74, 137, 220, 0.12);
+  border: 1px solid rgba(74, 137, 220, 0.08);
+}
+
+.progress-card-narrow .progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.7rem;
+  color: #34495e;
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.progress-card-narrow .progress-percent {
+  background: linear-gradient(90deg, #4a89dc 0%, #6dd5ed 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.progress-card-narrow .progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: #e8eef7;
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.08);
+  margin-bottom: 0.8rem;
+}
+
+.progress-card-narrow .progress-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #4a89dc 20%, #5b9dff 70%, #6dd5ed 100%);
+  box-shadow: 0 1px 8px rgba(74,137,220,0.4);
+  transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(74, 137, 220, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(74, 137, 220, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(74, 137, 220, 0);
+  }
+}
+
+@media (max-width: 900px) {
   .container {
     padding: 1rem;
   }
   .card {
-    padding: 1rem 0.5rem;
+    padding: 1.1rem 0.5rem;
   }
-  .result-section, .save-section, .saved-tip {
-    padding: 1rem;
+  .result-section-beauty {
+    padding: 1.2rem 0.5rem;
   }
-  .save-input {
-    min-width: 120px;
+  .saved-tip-beauty {
+    flex-direction: column;
+    gap: 0.7rem;
+    font-size: 1rem;
   }
 }
 </style>
