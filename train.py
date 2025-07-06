@@ -8,18 +8,19 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from typing import List, Tuple, Dict, Optional
 import re
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from sklearn.metrics import accuracy_score, roc_auc_score,f1_score,classification_report
 import json
 import matplotlib.pyplot as plt
 from pre_processing import translate_dna_to_protein,SequenceEncoder,parse_fasta,set_seed
 from model import HybridModel,MSA_ResGRUNet,HyperFusionCortex
 import os
+from promoter_check import predict_promonter
 
 class ProteinClassifier:
     def __init__(self, config: Optional[dict] = None, label_map: Optional[dict] = None,model_info: Optional[dict] = None,train_model = 'HybridModel'):
         self.config = config or {
-            'max_length': 10000,
+            'max_length': 5000,
             'batch_size': 32,
             'epochs': 10,
             'learning_rate': 1e-4
@@ -442,7 +443,221 @@ class ProteinClassifier:
             classifier.model.load_state_dict(checkpoint['model_state'])            
             return classifier       
 
+    # 实际的基因预测
+    def practical_predict_genome(self, fasta_file, result_save_path, min_confidence=0.7, min_protein_length=100, molecule_type='DNA'):
+        def promoters_scoring(dna_seq, mol_type):
+            """寻找启动子并为启动子打分"""
+            # 记录启动子区域以及置信度
+            promoters_info = {}
+            seq_len = len(dna_seq)
 
+            if mol_type == 'RNA':
+                strands = ['+']
+                start_codons = {'ATG', 'GTG', 'TTG'}
+            else:
+                strands = ['+']
+                start_codons = {'ATG', 'GTG', 'TTG'}
+
+            for strand in strands:
+                working_seq = dna_seq if strand == '+' else str(Seq(dna_seq).reverse_complement())
+                seq_len = len(working_seq)
+                for frame in range(3):
+                    for pos in trange(frame, seq_len - 2, 3, desc=f"Strand {strand} Frame {frame}"):
+                        codon = working_seq[pos:pos+3]
+                        if codon in start_codons:
+                            start_pos = pos
+                            # 启动子区域
+                            promoter_start = max(0, start_pos - 100)
+                            promoter_end = start_pos
+                            promoter_region = working_seq[promoter_start:promoter_end]
+                            # 计算启动子得分
+                            result = predict_promonter(
+                                text=promoter_region,
+                                model_path="promoter_model/gena-lm-bert-base",
+                                kmer=6  # 若模型无需 k-mer，可设为 -1
+                            )
+                            label = True if result["predicted_index"] else False
+                            if label == True:
+                                confidence = result["confidence"]
+                                promoters_info[start_pos] = confidence
+                            else:
+                                confidence = 1- result["confidence"]
+                                promoters_info[start_pos] = confidence
+                        pos += 3
+            return promoters_info
+                
+        # 分子类型敏感的ORF检测
+        def advanced_orf_detection(dna_seq, min_len, mol_type, max_length=self.config['max_length']):
+            """改进版ORF检测：每个起始密码子可产生多个ORF，支持启动子区域记录"""
+            # 先检测启动子信息
+            promoters_info = promoters_scoring(dna_seq, mol_type)
+            orfs = []
+            seq_len = len(dna_seq)
+            max_orf_nt = max_length * 3
+
+            if mol_type == 'RNA':
+                strands = ['+']
+                start_codons = {'ATG', 'GTG', 'TTG'}
+            else:
+                strands = ['+']
+                start_codons = {'ATG', 'GTG', 'TTG'}
+            stop_codons = {'TAA', 'TAG', 'TGA'}
+
+            for strand in strands:
+                working_seq = dna_seq if strand == '+' else str(Seq(dna_seq).reverse_complement())
+                seq_len = len(working_seq)
+                for frame in range(3):
+                    pos = frame
+                    while pos <= seq_len - 3:
+                        codon = working_seq[pos:pos+3]
+                        if codon in start_codons:
+                            start_pos = pos
+                            # 向后查找所有终止密码子
+                            found_stop = False
+                            next_pos = pos + 3
+                            orf_count = 0
+                            while (next_pos <= min(start_pos + max_orf_nt, seq_len - 3)):
+                                next_codon = working_seq[next_pos:next_pos+3]
+                                if next_codon in stop_codons:
+                                    orf_len = (next_pos + 3 - start_pos) // 3
+                                    if orf_len >= min_len:
+                                        orfs.append({
+                                            'start': start_pos if strand == '+' else (len(dna_seq) - start_pos - 3),
+                                            'end': next_pos + 3 if strand == '+' else (len(dna_seq) - next_pos),
+                                            'strand': strand,
+                                            'length': orf_len,
+                                            'stop_quality': 1.0,
+                                            'promoter_confidence': promoters_info.get(start_pos, 0.0)
+                                        })
+                                        orf_count += 1
+                                    found_stop = True
+                                next_pos += 3
+                            # 如果没有终止密码子，或最后一个终止密码子后还有剩余长度
+                            if not found_stop or (start_pos + max_orf_nt < seq_len):
+                                orf_len = (min(start_pos + max_orf_nt, seq_len) - start_pos) // 3
+                                if orf_len >= min_len:
+                                    orfs.append({
+                                        'start': start_pos if strand == '+' else (len(dna_seq) - start_pos - 3),
+                                        'end': min(start_pos + max_orf_nt, seq_len) if strand == '+' else 0,
+                                        'strand': strand,
+                                        'length': orf_len,
+                                        'stop_quality': 0.8,
+                                        'promoter_confidence': promoters_info.get(start_pos, 0.0)
+                                    })
+                        pos += 3
+            return sorted(orfs, key=lambda x: (-x['length'], -x['stop_quality']))
+
+        # 多维度预测合并策略
+        def intelligent_merge(predictions):
+            # 按照置信度和蛋白质长度进行排序
+            predictions.sort(key=lambda x: (-x['confidence'], -x['protein_length']))
+            
+            merged = {}  # 存储每个蛋白质类型的最终结果
+            
+            for pred in predictions:
+                protein_type = pred['prediction']
+                # 如果该蛋白质类型之前未添加，则添加当前预测
+                if protein_type not in merged:
+                    merged[protein_type] = pred
+                # 如果已经有该蛋白质的预测且当前预测置信度更高，则更新该蛋白质的预测
+                elif pred['confidence'] > merged[protein_type]['confidence']:
+                    merged[protein_type] = pred
+
+            # 将最终的预测结果排序
+            final = list(merged.values())
+            final.sort(key=lambda x: x['start'])
+            
+            return final
+
+        # 主处理流程
+        os.makedirs(result_save_path, exist_ok=True)
+        for record in SeqIO.parse(fasta_file, "fasta"):
+            dna_seq = str(record.seq).upper()
+            print(dna_seq)
+            orfs = advanced_orf_detection(dna_seq, min_protein_length // 3, molecule_type)
+            
+            predictions = []
+            for orf in orfs:
+                try:
+                    if orf['strand'] == '+':
+                        fragment = dna_seq[orf['start']:orf['end']]
+                        promoter_confidence = orf.get('promoter_confidence', 0.0)
+                    else:
+                        fragment = str(Seq(dna_seq).reverse_complement()[orf['start']:orf['end']])
+                        promoter_confidence = orf.get('promoter_confidence', 0.0)
+                    
+                    if molecule_type == 'RNA' and orf['strand'] == '+':
+                        fragment = fragment.replace('T', 'U')  # 转换为RNA序列
+                        promoter_confidence = orf.get('promoter_confidence', 0.0)
+                    
+                    protein = []
+                    for i in range(0, len(fragment)-2, 3):
+                        codon = fragment[i:i+3]
+                        aa = str(Seq(codon).translate(table=1))[0]  # 使用标准密码子表
+                        if aa == '*': break
+                        protein.append(aa)
+                    protein = ''.join(protein)
+                    
+                    if len(protein) < min_protein_length:
+                        continue
+                    
+                    encoded_seq = protein.ljust(self.config['max_length'], 'X')[:self.config['max_length']]
+                    encoded = self.encoder.transform([encoded_seq])
+                    
+                    tensor = torch.LongTensor(encoded).to(self.device)
+                    # 蛋白质分类
+                    with torch.no_grad():
+                        outputs = self.model(tensor)
+                        probs = torch.softmax(outputs, dim=1)
+                        protein_conf, pred_idx = torch.max(probs, 1)
+
+                    # 综合置信度
+                    conf = (protein_conf.item() + promoter_confidence) / 2
+                    if conf >= min_confidence:
+                        predictions.append({
+                            'start': orf['start'] + 1,
+                            'end': orf['end'],
+                            'strand': orf['strand'],
+                            'prediction': self.inverse_label_map[pred_idx.item()],
+                            'confidence': conf,
+                            'protein_length': len(protein),
+                            'stop_quality': orf.get('stop_quality', 1.0)
+                        })
+                except Exception as e:
+                    logging.error(f"ORF处理异常: {str(e)}")
+            
+            final_preds = intelligent_merge(predictions)
+            
+            # self.visualize_genome(final_preds, len(dna_seq), f"{save_path}/{record.id}_map.png")
+            
+            output = {
+                "metadata": {
+                    "genome_id": record.id,
+                    "length": len(dna_seq),
+                    "detection_parameters": {
+                        "min_confidence": min_confidence,
+                        "min_length": min_protein_length,
+                        "model_version": self.model.__class__.__name__
+                    }
+                },
+                "features": [
+                    {
+                        "type": p['prediction'],
+                        "location": f"{p['start']}..{p['end']}",
+                        "strand": p['strand'],
+                        "qualifiers": {
+                            "confidence": round(p['confidence'], 3),
+                            "protein_length": p['protein_length']
+                        }
+                    } for p in final_preds
+                ]
+            }
+            with open(f"{result_save_path}/{record.id}_annotation.json", "w") as f:
+                json.dump(output, f, indent=2, ensure_ascii=False)
+            
+        return output
+
+    # 用于演示的基因预测
     def predict_genome(self, fasta_file, result_save_path, min_confidence=0.7, min_protein_length=100, molecule_type='DNA'):
         # 分子类型敏感的ORF检测
         def advanced_orf_detection(dna_seq, min_len, mol_type):
@@ -634,8 +849,6 @@ class ProteinClassifier:
                 json.dump(output, f, indent=2, ensure_ascii=False)
             
         return output
-
-
 
     def visualize_genome(self, predictions, seq_length, save_path):
         """增强的可视化方法"""
