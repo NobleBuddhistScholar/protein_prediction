@@ -48,3 +48,12 @@ prectice_test/
 #启动子模型
 promoter_model/
 
+# embedding模型
+embedding_model/
+
+# 知识库
+chroma_db/
+
+# 其他
+virus_protein_info/
+virus_protein_info_test/
