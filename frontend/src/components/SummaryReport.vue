@@ -2,7 +2,7 @@
   <div class="container">
     <div class="header-section">
       <h2 class="section-title">
-        <i class="fa-solid fa-file-chart-line"></i> 基因组分析报告
+        <i class="fa-solid fa-database"></i> 基因组分析报告
       </h2>
       <button class="refresh-btn" @click="loadReports" :disabled="loading">
         <i class="fa-solid fa-sync" :class="{ 'fa-spin': loading }"></i> 刷新

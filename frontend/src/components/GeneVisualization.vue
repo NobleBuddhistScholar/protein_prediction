@@ -5,14 +5,6 @@
       <h2 class="section-title">
         <i class="fa-solid fa-microscope"></i> 基因组注释
       </h2>
-      <div class="model-select-container">
-        <label class="model-select-label">选择模型：</label>
-        <select v-model="selectedModelFile" class="model-select">
-          <option v-for="option in modelOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div> 
       <div class="file-upload-container">
         <label class="file-upload-button">
           <input type="file" ref="fileInput" @change="handleFileUpload" accept=".fasta" />
@@ -31,6 +23,14 @@
           <span class="progress-text">{{ progress }}%</span>
         </div>
       </div>
+      <div class="model-select-container">
+        <label class="model-select-label">选择模型：</label>
+        <select v-model="selectedModelFile" class="model-select">
+          <option v-for="option in modelOptions" :key="option.value" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </div> 
     </div>
 
     <div v-if="geneData">
@@ -47,7 +47,7 @@
         />
         <!-- 控制按钮 -->
         <div class="control-buttons">
-          <button @click="showReportModal">
+          <button @click="showReportModal" :disabled="isUploading || !currentReport">
             <i class="fa-solid fa-table-list"></i> 查看txt报告
           </button>
           <button @click="openGffReportModal">
@@ -171,10 +171,24 @@
         <!-- AI流式分析报告对话框（非弹窗，固定在基因图谱下方） -->
         <div class="ai-report-panel">
           <div class="ai-report-panel-header">
-            <i class="fa-solid fa-robot"></i> AI分析报告
-            <button @click="handleStreamSummary" :disabled="isUploading || !geneData" class="ai-report-regenerate">
-              <i class="fa-solid fa-rotate"></i> 重新生成
-            </button>
+            <div class="ai-report-title">
+              <i class="fa-solid fa-robot"></i> AI分析报告
+            </div>
+            <div class="ai-report-controls">
+              <button v-if="!currentReport" @click="handleStreamSummary" :disabled="isUploading || !geneData" class="ai-report-generate">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 生成分析报告
+              </button>
+              <button v-else @click="handleStreamSummary" :disabled="isUploading || !geneData" class="ai-report-regenerate">
+                <i class="fa-solid fa-rotate"></i> 重新生成
+              </button>
+              <label class="rag-switch">
+                <span class="rag-label">知识库</span>
+                <div class="switch-container">
+                  <input type="checkbox" v-model="useRAG">
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
           </div>
           <div class="ai-report-panel-body" ref="aiReportPanelBody">
             <div v-if="isUploading && !currentReport" class="ai-report-loading">
@@ -185,12 +199,19 @@
             </div>
             <div v-else-if="currentReport" v-html="formatContent(currentReport)"></div>
             <div v-else class="ai-report-empty">
-              暂无AI分析报告，请点击上方按钮生成。
-              <div v-if="geneData" class="ai-report-empty-tip">
-                可以点击"重新生成"按钮来获取关于此基因组的AI分析报告。
+              <div v-if="geneData" class="ai-report-empty-message">
+                <i class="fa-solid fa-lightbulb"></i>
+                <div>
+                  <div class="empty-title">基因组已上传成功</div>
+                  <div class="empty-desc">点击上方"生成分析报告"按钮获取详细的AI分析。</div>
+                </div>
               </div>
-              <div v-else class="ai-report-empty-tip">
-                请先上传基因组数据。
+              <div v-else class="ai-report-empty-message">
+                <i class="fa-solid fa-file-import"></i>
+                <div>
+                  <div class="empty-title">还未上传基因组</div>
+                  <div class="empty-desc">请先上传基因组数据后再生成分析报告。</div>
+                </div>
               </div>
             </div>
           </div>
@@ -201,6 +222,7 @@
 </template>
 
 <script>
+import { API_BASE_URL } from '../config.js';
 export default {
   data() {
     return {
@@ -209,6 +231,8 @@ export default {
         genome_id: '',
         report_date: ''
       },
+      // 是否使用知识库增强生成
+      useRAG: true,
       geneData: null,
       currentReport: null,
       savedGeneData: null,
@@ -277,7 +301,7 @@ export default {
     // 新增：加载模型列表
     async loadModelList() {
       try {
-        const response = await fetch('http://localhost:5000/models');
+        const response = await fetch(`${API_BASE_URL}/models`);
         if (!response.ok) throw new Error('获取模型列表失败');
         
         const data = await response.json();
@@ -412,7 +436,7 @@ export default {
       formData.append('model_file', this.selectedModelFile); // 添加选择的模型文件参数
 
       try {
-        const response = await fetch('http://localhost:5000/upload', {
+        const response = await fetch(`${API_BASE_URL}/upload`, {
           method: 'POST',
           body: formData
         });
@@ -452,14 +476,9 @@ export default {
           this.isUploading = false;
           clearInterval(this.progressInterval);
           
-          // 基因组处理完成后，可以自动开始生成AI报告
-          // 等待一小段时间再触发AI分析，让用户先查看基因图谱
-          setTimeout(() => {
-            if (this.geneData && !this.currentReport) {
-              console.log('自动开始生成AI分析报告...');
-              this.handleStreamSummary();
-            }
-          }, 1000);
+          // 基因组处理完成后，不再自动生成AI报告
+          // 用户需要点击"生成分析报告"按钮才会生成
+          console.log('基因组处理完成，等待用户手动生成AI分析报告...');
         }, 500);
       } catch (error) {
         console.error('Error:', error);
@@ -479,6 +498,12 @@ export default {
 
     // 获取TXT报告并显示为模态框（数据驱动）
     async showReportModal() {
+      // 如果正在上传或生成AI报告，或者报告尚未生成，则不执行操作
+      if (this.isUploading || !this.currentReport) {
+        console.log('报告尚未生成或正在生成中，请稍候...');
+        return;
+      }
+      
       if (!this.geneData) {
         alert('没有基因组数据，无法显示报告');
         return;
@@ -486,7 +511,7 @@ export default {
       try {
         const genome_id = this.geneData.metadata.genome_id;
         const current_date = new Date().toISOString().split('T')[0];
-        const url = `http://localhost:5000/summary?genome_id=${genome_id}&current_date=${current_date}`;
+        const url = `${API_BASE_URL}/summary?genome_id=${genome_id}&current_date=${current_date}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('报告获取失败');
         const reportData = await response.json();
@@ -522,6 +547,12 @@ export default {
       URL.revokeObjectURL(url);
     },
     async openGffReportModal() {
+    // 如果正在上传或者生成AI报告，则不执行操作
+    if (this.isUploading) {
+      console.log('正在生成报告，请稍候...');
+      return;
+    }
+      
     this.showGffReportModal = true;
     this.isGeneratingGff = true;
     try {
@@ -533,7 +564,7 @@ export default {
 
       // 发出生成GFF报告的请求
       const generateResponse = await fetch(
-        `http://localhost:5000/generate_gff?genome_id=${genome_id}&current_date=${current_date}`
+        `${API_BASE_URL}/generate_gff?genome_id=${genome_id}&current_date=${current_date}`
       );
       if (!generateResponse.ok) {
         throw new Error('生成GFF报告失败');
@@ -541,7 +572,7 @@ export default {
 
       // 获取GFF报告
       const gffResponse = await fetch(
-        `http://localhost:5000/gff?genome_id=${genome_id}&current_date=${current_date}`
+        `${API_BASE_URL}/gff?genome_id=${genome_id}&current_date=${current_date}`
       );
       if (!gffResponse.ok) {
         throw new Error('获取GFF报告失败');
@@ -766,8 +797,14 @@ export default {
       this.currentReport = '';
       this.uploadError = null;
       try {
-        const postData = { genome_id, genome_data };
-        const response = await fetch('http://localhost:5000/stream_summary', {
+        // 将 useRAG 参数添加到请求中
+        const postData = { 
+          genome_id, 
+          genome_data,
+          use_rag: this.useRAG  // 添加是否使用知识库增强的参数
+        };
+        console.log(`生成AI报告，知识库增强: ${this.useRAG ? '开启' : '关闭'}`);
+        const response = await fetch(`${API_BASE_URL}/stream_summary`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postData)
@@ -1035,6 +1072,22 @@ gap: 0.5rem;
 background: linear-gradient(135deg, #3a79cc, #5cc5dd);
 transform: translateY(-1px);
 box-shadow: 0 4px 12px rgba(74,137,220,0.25);
+}
+
+/* 新增：按钮禁用状态样式 */
+.control-buttons button:disabled {
+  background: linear-gradient(135deg, #b3c9e6, #c5e2eb);
+  color: #e0e0e0;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.8;
+}
+
+.control-buttons button:disabled:hover {
+  background: linear-gradient(135deg, #b3c9e6, #c5e2eb);
+  transform: none;
+  box-shadow: none;
 }
 
 /* 基因可视化包装器 */
@@ -1552,6 +1605,33 @@ input[type="text"] {
   cursor: not-allowed;
 }
 
+.ai-report-generate {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.15);
+}
+
+.ai-report-generate:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2980b9, #1c6ea4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
+}
+
+.ai-report-generate:disabled {
+  background: #b0c4de;
+  cursor: not-allowed;
+}
+
 .ai-report-panel-body {
   max-height: 400px;
   overflow-y: auto;
@@ -1590,20 +1670,48 @@ input[type="text"] {
   background-color: #f5f7fa;
   border-radius: 8px;
   margin: 10px 0;
+  padding: 20px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
 }
 
-.ai-report-empty-tip {
-  margin-top: 10px;
-  font-size: 0.9em;
+.ai-report-empty-message {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #3498db;
+  max-width: 450px;
+}
+
+.ai-report-empty-message i {
+  font-size: 2rem;
   color: #3498db;
 }
 
+.empty-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.empty-desc {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}
+
 /* 强化滚动条样式 */
-.ai-report-panel-body::-webkit-scrollbar {
+.ai-report-panel_body::-webkit-scrollbar {
   width: 8px;
 }
 
-.ai-report-panel-body::-webkit-scrollbar-thumb {
+.ai-report-panel_body::-webkit-scrollbar-thumb {
   background-color: #4a89dc;
   border-radius: 4px;
 }
@@ -1613,7 +1721,7 @@ input[type="text"] {
 }
 
 /* 增强报告内容格式 */
-.ai-report-panel-body h3 {
+.ai-report-panel_body h3 {
   margin-top: 12px;
   margin-bottom: 8px;
   color: #2c3e50;
@@ -1694,5 +1802,92 @@ input[type="text"] {
   cursor: pointer;
   margin-left: 1rem;
   transition: all 0.3s;
+}
+
+.ai-report-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-report-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.ai-report-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* 知识库增强开关按钮样式 */
+.rag-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background-color: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.switch-container {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.rag-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  border-radius: 10px;
+  transition: .3s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: .3s;
+}
+
+input:checked + .slider {
+  background-color: #3498db;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #3498db;
+}
+
+input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+.rag-label {
+  font-size: 0.85em;
+  font-weight: 500;
+  color: #555;
+  user-select: none;
 }
 </style>
