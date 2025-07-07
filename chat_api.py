@@ -5,8 +5,14 @@ from typing import Optional
 from openai import OpenAI
 import os
 from datetime import datetime
+from creat_knowledgeDB import search_knowledge
 
-def generate_summary_stream(genome_id: str, genome_data: dict, save_path: str):
+def generate_summary_stream(genome_id: str, genome_data: dict, save_path: str, rag = "virus_knowledge", if_rag = True,):
+    #检索知识库
+    if if_rag == True:
+        arg_data = search_knowledge(genome_id = genome_id, genome_data=genome_data, collection_name=rag, top_k=3, return_results=True)
+    else:
+        arg_data = '无'
     client = OpenAI(api_key="sk-755fa616aac649b5be5d47c6af5ed44a", base_url="https://api.deepseek.com")
     messages = [
         {
@@ -28,6 +34,9 @@ def generate_summary_stream(genome_id: str, genome_data: dict, save_path: str):
             
             **预测的开放阅读框(ORFs)**:
             {json.dumps(genome_data['features'], indent=2, ensure_ascii=False)}
+
+            **知识库提供的信息**:
+            {arg_data}
             
             请从以下方面进行专业分析：
             1. 整体基因组结构特征
