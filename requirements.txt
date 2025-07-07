@@ -20,5 +20,11 @@ matplotlib==3.8.2     # 修复高DPI显示问题，支持更多可视化特性
 openai==1.72.0       # 最新官方SDK，支持ChatGPT API v1
 python-dotenv==1.0.0  # 环境变量管理（推荐通过.env文件配置密钥）
 
+# 知识库与向量检索
+chromadb==0.5.23     # 向量数据库，保持与当前版本一致
+sentence-transformers==2.5.0  # 文本向量化模型
+PyPDF2==3.0.1        # PDF文件解析
+python-docx==1.0.0   # Word文档解析
+
 # 额外依赖（确保安装顺序）
 pyparsing==3.1.0     # 解析库（matplotlib依赖）
