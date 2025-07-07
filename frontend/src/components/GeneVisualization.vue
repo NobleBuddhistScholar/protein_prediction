@@ -277,7 +277,7 @@ export default {
     // 新增：加载模型列表
     async loadModelList() {
       try {
-        const response = await fetch('http://localhost:5000/models');
+        const response = await fetch(`${API_BASE_URL}/models`);
         if (!response.ok) throw new Error('获取模型列表失败');
         
         const data = await response.json();
@@ -412,7 +412,7 @@ export default {
       formData.append('model_file', this.selectedModelFile); // 添加选择的模型文件参数
 
       try {
-        const response = await fetch('http://localhost:5000/upload', {
+        const response = await fetch(`${API_BASE_URL}/upload`, {
           method: 'POST',
           body: formData
         });
@@ -486,7 +486,7 @@ export default {
       try {
         const genome_id = this.geneData.metadata.genome_id;
         const current_date = new Date().toISOString().split('T')[0];
-        const url = `http://localhost:5000/summary?genome_id=${genome_id}&current_date=${current_date}`;
+        const url = `${API_BASE_URL}/summary?genome_id=${genome_id}&current_date=${current_date}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('报告获取失败');
         const reportData = await response.json();
@@ -533,7 +533,7 @@ export default {
 
       // 发出生成GFF报告的请求
       const generateResponse = await fetch(
-        `http://localhost:5000/generate_gff?genome_id=${genome_id}&current_date=${current_date}`
+        `${API_BASE_URL}/generate_gff?genome_id=${genome_id}&current_date=${current_date}`
       );
       if (!generateResponse.ok) {
         throw new Error('生成GFF报告失败');
@@ -541,7 +541,7 @@ export default {
 
       // 获取GFF报告
       const gffResponse = await fetch(
-        `http://localhost:5000/gff?genome_id=${genome_id}&current_date=${current_date}`
+        `${API_BASE_URL}/gff?genome_id=${genome_id}&current_date=${current_date}`
       );
       if (!gffResponse.ok) {
         throw new Error('获取GFF报告失败');
@@ -767,7 +767,7 @@ export default {
       this.uploadError = null;
       try {
         const postData = { genome_id, genome_data };
-        const response = await fetch('http://localhost:5000/stream_summary', {
+        const response = await fetch('${API_BASE_URL}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postData)
