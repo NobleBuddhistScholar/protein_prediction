@@ -19,6 +19,9 @@
         <button @click="showPage('ModelManage')" :class="{ active: currentPage === 'ModelManage' }">
           <i class="fa-solid fa-folder-open"></i>  模型管理
         </button>
+        <button @click="showPage('KnowledgeManage')" :class="{ active: currentPage === 'KnowledgeManage' }">
+          <i class="fa-solid fa-brain"></i>  知识库管理
+        </button>
       </div>
       <div class="content">
         <transition name="fade" mode="out-in">
@@ -34,6 +37,7 @@ import GeneVisualization from './components/GeneVisualization.vue';
 import SummaryReport from './components/SummaryReport.vue';
 import ModelTrain from './components/ModelTrain.vue';
 import ModelManage from './components/ModelManage.vue';
+import KnowledgeManage from './components/KnowledgeManage.vue';
 
 export default {
   data() {
@@ -50,7 +54,8 @@ export default {
     GeneVisualization,
     SummaryReport,
     ModelTrain,
-    ModelManage
+    ModelManage,
+    KnowledgeManage
   }
 };
 </script>
@@ -284,4 +289,4 @@ body {
     font-size: 1rem;
   }
 }
-</style>    
+</style>
