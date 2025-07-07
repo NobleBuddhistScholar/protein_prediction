@@ -1,2 +1,0 @@
-# protein_prediction
-一个可以注释病毒蛋白质位点的轻量级系统
