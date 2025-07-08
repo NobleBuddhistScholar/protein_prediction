@@ -834,12 +834,12 @@ export default {
 }
 
 .view-btn {
-  background: linear-gradient(135deg, #4a89dc, #5b9dff);
+  background: linear-gradient(135deg, #74b9ff, #0984e3);
   color: white;
 }
 
 .details-btn {
-  background: linear-gradient(135deg, #74b9ff, #0984e3);
+  background: linear-gradient(135deg, #fdcb6e, #e17055);
   color: white;
 }
 
@@ -849,12 +849,12 @@ export default {
 }
 
 .gff-btn {
-  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
+  background: linear-gradient(135deg, #fd79a8, #e84393);
   color: white;
 }
 
 .delete-btn {
-  background: linear-gradient(135deg, #fd79a8, #e84393);
+  background: linear-gradient(135deg, #c175e1 0%, #731d80);
   color: white;
   grid-column: 1 / -1;
 }

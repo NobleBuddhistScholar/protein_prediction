@@ -5,32 +5,59 @@
       <h2 class="section-title">
         <i class="fa-solid fa-microscope"></i> 基因组注释
       </h2>
+      <button class="refresh-btn" @click="refreshPage" :disabled="isUploading">
+        <i class="fa-solid fa-sync" :class="{ 'fa-spin': isUploading }"></i> 刷新
+      </button>
+    </div>
+
+    <!-- 上传区域（无基因数据时显示） -->
+    <div v-if="!geneData" class="upload-section">
+      <h3 class="section-subtitle">
+        <i class="fa-solid fa-dna"></i> 上传基因组文件进行分析
+      </h3>
       <div class="file-upload-container">
-        <label class="file-upload-button">
-          <input type="file" ref="fileInput" @change="handleFileUpload" accept=".fasta" />
-          <span v-if="!isUploading &&!uploadError">
-            <i class="icon-upload"></i> {{ fileName || '选择FASTA文件' }}
-          </span>
-          <span v-if="isUploading" class="uploading-text">
-            <i class="fa-solid fa-spinner fa-spin"></i> 正在分析中...
-          </span>
-          <span v-if="uploadError" class="error-text">
-            <i class="fa-solid fa-exclamation-triangle"></i> {{ uploadError }}
-          </span>
-        </label>
-        <div v-if="isUploading" class="progress-container">
-          <div class="progress-bar" :style="{ width: progress + '%' }"></div>
-          <span class="progress-text">{{ progress }}%</span>
+        <div class="file-dropzone" 
+             :class="{ 'disabled': isUploading, 'active-dropzone': isDragging }" 
+             @dragenter.prevent="isDragging = true" 
+             @dragleave.prevent="isDragging = false"
+             @dragover.prevent
+             @drop.prevent="handleFileDrop">
+          <label class="file-upload-button" :class="{ 'disabled': isUploading }">
+            <input type="file" ref="fileInput" @change="handleFileUpload" accept=".fasta" :disabled="isUploading" />
+            <span v-if="!isUploading && !uploadError">
+              <i class="fa-solid fa-cloud-upload-alt"></i> {{ fileName || '选择FASTA文件' }}
+            </span>
+            <span v-if="isUploading" class="uploading-text">
+              <i class="fa-solid fa-spinner fa-spin"></i> 正在分析中...
+            </span>
+            <span v-if="uploadError" class="error-text">
+              <i class="fa-solid fa-exclamation-triangle"></i> {{ uploadError }}
+            </span>
+          </label>
+          <div v-if="isUploading" class="progress-container">
+            <div class="progress-bar" :style="{ width: progress + '%' }"></div>
+            <span class="progress-text">{{ progress }}%</span>
+          </div>
+        </div>
+        
+        <div class="model-select-container">
+          <label class="model-select-label">选择分析模型：</label>
+          <select v-model="selectedModelFile" class="model-select" :disabled="isUploading">
+            <option v-for="option in modelOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="upload-actions">
+          <button class="action-btn analyze-btn" @click="handleAnalyzeFile" :disabled="!fileName || isUploading">
+            <i class="fa-solid fa-play"></i> 开始分析
+          </button>
+          <button class="action-btn clear-btn" @click="clearFileSelection" :disabled="isUploading">
+            <i class="fa-solid fa-times"></i> 清除
+          </button>
         </div>
       </div>
-      <div class="model-select-container">
-        <label class="model-select-label">选择模型：</label>
-        <select v-model="selectedModelFile" class="model-select">
-          <option v-for="option in modelOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div> 
     </div>
 
     <div v-if="geneData">
@@ -53,9 +80,6 @@
           <button @click="openGffReportModal">
             <i class="fa-solid fa-file-alt"></i> 查看GFF报告
           </button>
-          <!-- <button @click="handleStreamSummary" :disabled="isUploading || !geneData">
-            <i class="fa-solid fa-robot"></i> 生成AI分析报告
-          </button> -->
           <button @click="clearDetection">
             <i class="fa-solid fa-power-off"></i> 关闭预测
           </button>
@@ -118,25 +142,25 @@
 
         <!-- 基因组详细信息模态框 -->
         <div v-if="showGeneDetailsModal" class="modal">
-          <div class="modal-content">
-            <span class="close" @click="closeGeneDetailsModal">&times;</span>
-            <h3 class="modal-title">基因详细信息</h3>
-            <div class="gene-details">
-              <div class="detail-row">
-                <div class="detail-label">基因ID:</div>
-                <div class="detail-value">{{ currentGeneDetails.location }}</div>
+          <div class="detail-modal-content">
+            <span class="detail-close" @click="closeGeneDetailsModal">&times;</span>
+            <h3 class="detail-modal-title">基因详细信息</h3>
+            <div class="detail-gene-details">
+              <div class="detail-detail-row">
+                <div class="detail-detail-label">基因类型:</div>
+                <div class="detail-detail-value">{{ currentGeneDetails.type }}</div>
               </div>
-              <div class="detail-row">
-                <div class="detail-label">基因类型:</div>
-                <div class="detail-value">{{ currentGeneDetails.type }}</div>
+              <div class="detail-detail-row">
+                <div class="detail-detail-label">位置:</div>
+                <div class="detail-detail-value">{{ currentGeneDetails.location }}</div>
               </div>
-              <div class="detail-row">
-                <div class="detail-label">位置:</div>
-                <div class="detail-value">{{ currentGeneDetails.location }}</div>
+              <div class="detail-detail-row">
+                <div class="detail-detail-label">长度:</div>
+                <div class="detail-detail-value">{{ getWidth(currentGeneDetails) }}</div>
               </div>
-              <div class="detail-row">
-                <div class="detail-label">长度:</div>
-                <div class="detail-value">{{ getWidth(currentGeneDetails) }}</div>
+              <div class="detail-detail-row">
+                <div class="detail-detail-label">置信度:</div>
+                <div class="detail-detail-value">{{ currentGeneDetails.qualifiers.confidence }}</div>
               </div>
             </div>
           </div>
@@ -176,10 +200,10 @@
             </div>
             <div class="ai-report-controls">
               <button v-if="!currentReport" @click="handleStreamSummary" :disabled="isUploading || !geneData" class="ai-report-generate">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> 生成分析报告
+                <i class="fa-solid fa-wand-magic-sparkles" style="color: white;"></i> 生成分析报告
               </button>
               <button v-else @click="handleStreamSummary" :disabled="isUploading || !geneData" class="ai-report-regenerate">
-                <i class="fa-solid fa-rotate"></i> 重新生成
+                <i class="fa-solid fa-rotate" style="color: white;"></i> 重新生成
               </button>
               <label class="rag-switch">
                 <span class="rag-label">知识库</span>
@@ -268,7 +292,10 @@ export default {
       // 新增：TXT报告模态框显示状态
       showTxtReportModal: false,
       // 新增：TXT报告内容
-      txtReportContent: ''
+      txtReportContent: '',
+      // 拖拽上传相关状态
+      isDragging: false,
+      uploadSuccess: false
     };
   },
   computed: {
@@ -298,6 +325,11 @@ export default {
     this.loadModelList();
   },
   methods: {
+    // 刷新整个页面的方法
+    refreshPage() {
+      //this.isUploading = true;
+      window.location.reload();
+    },
     // 新增：加载模型列表
     async loadModelList() {
       try {
@@ -409,14 +441,25 @@ export default {
       }
     },
 
-    async handleFileUpload(event) {
+    handleFileUpload(event) {
       const file = event.target.files[0];
       if (!file) return;
 
+      // 只记录文件信息，不进行上传和分析
       this.fileName = file.name;
+      this.uploadError = null;
+      this.uploadSuccess = false;
+      
+      // 文件已选择，但尚未上传
+      console.log(`文件 ${this.fileName} 已选择，点击"开始分析"按钮开始处理`);
+    },
+    
+    async analyzeFile() {
+      if (!this.fileName || this.isUploading || !this.$refs.fileInput.files[0]) return;
+      
+      const file = this.$refs.fileInput.files[0];
       this.isUploading = true;
       this.progress = 0;
-      this.uploadError = null;
 
       // 检查 rulerCanvas 是否存在
       if (this.$refs.rulerCanvas) {
@@ -475,6 +518,12 @@ export default {
         setTimeout(async () => {
           this.isUploading = false;
           clearInterval(this.progressInterval);
+          this.uploadSuccess = true;
+          
+          // 3秒后自动隐藏成功消息
+          setTimeout(() => {
+            this.uploadSuccess = false;
+          }, 3000);
           
           // 基因组处理完成后，不再自动生成AI报告
           // 用户需要点击"生成分析报告"按钮才会生成
@@ -662,29 +711,37 @@ export default {
 
     getColor(type) {
       const colors = {
-        NSP1: '#FF6B6B',
-        NSP2: '#4ECDC4',
-        NSP3: '#45B7D1',
-        NSP4: '#FFBE0B',
-        NSP5: '#FB5607',
-        NSP6: '#8338EC',
-        NSP7: '#3A86FF',
-        NSP8: '#FF006E',
-        NSP9: '#88D18A',
-        NSP10: '#118AB2',
-        NSP11: '#8A89C0',
-        NSP12: '#EF476F',
-        NSP13: '#06D6A0',
-        NSP14: '#1B9AAA',
-        NSP15: '#FFC43D',
-        NSP16: '#8A89b0',
-        membrane_protein: '#E2F0F9',
-        envelope_protein: '#FCD5CE',
-        nucleocapsid_protein: '#FFF1CC'
+        // 核心非结构蛋白 (暖色系)
+        NSP1: '#FF6F61',  // 珊瑚红
+        NSP2: '#FFA630',  // 日落橙
+        NSP3: '#FFD166',  // 琥珀黄
+        NSP4: '#EF476F',  // 覆盆子红
+        
+        // 酶相关蛋白 (绿色系)
+        NSP5: '#F8F3E6',  // 翡翠绿
+        NSP6: '#88D18A',  // 青苔绿
+        NSP7: '#B5E48C',  // 嫩草绿
+        NSP8: '#4CAF50',  // 森林绿
+        
+        // 复制相关蛋白 (紫色系)
+        NSP9: '#F5EBE0',  // 紫水晶
+        NSP10: '#7B68EE', // 中紫罗兰
+        NSP11: '#C77DFF', // 薰衣草紫
+        NSP12: '#5E548E', // 深紫灰
+        
+        // 核酸处理蛋白 (大地色系)
+        NSP13: '#F0EFEB',  // 陶土棕
+        NSP14: '#BC6C25',  // 铜橙色
+        NSP15: '#E76F51',  // 赤陶色
+        NSP16: '#cccccc',  // 沙金色
+        
+        // 结构蛋白 (浅中性色)
+        membrane_protein: '#9D4EDD',  // 珍珠白
+        envelope_protein: '#D4A373',  // 羊皮纸色
+        nucleocapsid_protein: '#06D6A0', // 丝绸灰
       };
-      return colors[type] || '#CCCCCC';
+      return colors[type] || '#E9C46A'; // 默认浅灰色
     },
-
     showDetails(gene) {
       this.currentGeneDetails = gene;
       this.showGeneDetailsModal = true;
@@ -871,12 +928,119 @@ export default {
         console.log('滚动到底部, 高度:', panel.scrollHeight);
         panel.scrollTop = panel.scrollHeight;
       }
-    }
+    },
+
+    // 处理文件拖放
+    handleFileDrop(event) {
+      event.preventDefault();
+      this.isDragging = false;
+      
+      // 获取拖放的文件
+      const files = event.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      
+      const file = files[0];
+      
+      // 检查文件类型是否为FASTA格式
+      if (!file.name.toLowerCase().endsWith('.fasta')) {
+        this.uploadError = "请上传FASTA格式文件";
+        setTimeout(() => {
+          this.uploadError = null;
+        }, 3000);
+        return;
+      }
+      
+      // 手动设置文件到input元素
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      this.$refs.fileInput.files = dataTransfer.files;
+      
+      // 仅调用文件选择处理函数，不会立即分析
+      this.handleFileUpload({ target: { files: dataTransfer.files } });
+    },
+    
+    // 清除文件选择
+    clearFileSelection() {
+      this.fileName = '';
+      this.uploadError = null;
+      this.uploadSuccess = false;
+      this.progress = 0;
+      
+      // 清除文件输入
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = null;
+      }
+    },
+    
+    // 处理分析文件
+    handleAnalyzeFile() {
+      if (!this.fileName || this.isUploading) return;
+      
+      // 调用analyzeFile方法开始分析
+      this.analyzeFile();
+    },
   }
 };
 </script>
 
 <style scoped>
+/* 上传区样式 */
+.upload-section {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  margin: 2rem auto;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  max-width: 1200px;
+  border: 1px solid rgba(74, 137, 220, 0.15);
+}
+
+/* 欢迎信息样式 */
+.welcome-message {
+  text-align: center;
+  max-width: 800px;
+  margin: 4rem auto 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.8s ease-out;
+}
+
+.welcome-icon {
+  font-size: 4rem;
+  color: #4a89dc;
+  margin-bottom: 1.5rem;
+}
+
+.welcome-message h2 {
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  font-size: 2rem;
+}
+
+.welcome-message p {
+  color: #34495e;
+  font-size: 1.2rem;
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 容器样式 */
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -884,14 +1048,6 @@ export default {
   font-family: 'Segoe UI', 'Arial', sans-serif;
   background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
   min-height: 100vh;
-}
-.card {
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 8px 32px rgba(80,120,200,0.10);
-  margin-bottom: 2.2rem;
-  padding: 2.2rem 2rem 2rem 2rem;
-  border: none;
 }
 
 /* 新增刻度尺样式 */
@@ -906,7 +1062,7 @@ export default {
 
 .gene-length-bar {
   height: 6px;
-  background: linear-gradient(90deg, #4a89dc, #6dd5ed);
+  background: linear-gradient(90deg, #0f2a84, #a6d9ef);
   border-radius: 3px;
   margin-top: 26px; /* 与canvas高度对齐 */
   box-shadow: 0 2px 8px rgba(74,137,220,0.15);
@@ -954,45 +1110,89 @@ font-weight: 700;
 letter-spacing: 1px;
 }
 
+.section-subtitle {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.section-subtitle i {
+  color: #4a89dc;
+}
+
 .file-upload-container {
-display: flex;
-flex-direction: column;
-gap: 0.5rem;
-min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 70%;
+  margin: 0 auto 1.5rem;
+}
+
+.file-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  border: 2px dashed #4a89dc;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  width: 100%;
+  text-align: center;
+  color: #4a89dc;
+  background-color: rgba(74, 137, 220, 0.03);
+}
+
+.file-dropzone:hover {
+  border-color: #5b9dff;
+  background-color: rgba(74, 137, 220, 0.08);
+  transform: translateY(-2px);
+}
+
+.file-dropzone.active-dropzone {
+  border-color: #4a89dc;
+  background-color: rgba(74, 137, 220, 0.1);
+  box-shadow: 0 0 0 3px rgba(74, 137, 220, 0.2);
 }
 
 .file-upload-button {
-display: inline-flex;
-align-items: center;
-justify-content: center;
-padding: 0.7rem 1.2rem;
-background: linear-gradient(135deg, #4a89dc, #5b9dff);
-color: white;
-border-radius: 8px;
-cursor: pointer;
-transition: all 0.3s;
-font-weight: 500;
-text-align: center;
-border: none;
-position: relative;
-overflow: hidden;
-box-shadow: 0 2px 8px rgba(74,137,220,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  color: #4a89dc;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-align: center;
+  position: relative;
+  min-height: 120px;
+  width: 100%;
 }
 
-.file-upload-button:hover {
-background: linear-gradient(135deg, #3a79cc, #4a8def);
-transform: translateY(-1px);
-box-shadow: 0 4px 12px rgba(74,137,220,0.3);
+.file-upload-button:hover:not(.disabled) {
+  color: #3a79cc;
+}
+
+.file-upload-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .file-upload-button input[type="file"] {
-position: absolute;
-left: 0;
-top: 0;
-width: 100%;
-height: 100%;
-opacity: 0;
-cursor: pointer;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .uploading-text {
@@ -1002,29 +1202,30 @@ gap: 0.5rem;
 }
 
 .progress-container {
-width: 100%;
-height: 6px;
-background-color: #e0e0e0;
-border-radius: 3px;
-position: relative;
-overflow: hidden;
+  width: 100%;
+  height: 10px;
+  background-color: #e0e0e0;
+  border-radius: 8px;
+  margin: 1rem 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .progress-bar {
-position: absolute;
-left: 0;
-top: 0;
-height: 100%;
-background-color: #3d7bdf;
-transition: width 0.3s ease;
+  height: 100%;
+  background: linear-gradient(90deg, #4a89dc, #5b9dff);
+  border-radius: 8px;
+  transition: width 0.3s ease;
+  box-shadow: 0 1px 3px rgba(74, 137, 220, 0.3);
 }
 
 .progress-text {
-position: absolute;
-right: 0;
-top: -20px;
-font-size: 0.8rem;
-color: #7f8c8d;
+  position: absolute;
+  right: 10px;
+  top: -18px;
+  font-size: 0.8rem;
+  color: #4a89dc;
+  font-weight: 600;
 }
 
 /* 图标样式 */
@@ -1151,17 +1352,17 @@ transition: transform 0.2s, box-shadow 0.2s;
 
 /* 模态框样式 */
 .modal {
-position: fixed;
-top: 0;
-left: 0;
-width: 100%;
-height: 100%;
-background: rgba(0, 0, 0, 0.6);
-display: flex;
-justify-content: center;
-align-items: center;
-z-index: 1000;
-backdrop-filter: blur(5px);
+  position: fixed;
+  z-index: 9999;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(40, 40, 80, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
 }
 
 .modal-content {
@@ -1451,35 +1652,41 @@ input[type="text"] {
 /* 新增模型选择样式 */
 .model-select-container {
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 0.5rem;
+  flex-direction: column;
+  width: 100%;
+  padding: 0.5rem 0;
 }
+
 .model-select-label {
+  margin-bottom: 0.8rem;
   font-weight: 600;
-  color: #34495e;
-  font-size: 1.08rem;
-  letter-spacing: 0.3px;
+  color: #2c3e50;
+  font-size: 1.05rem;
 }
+
 .model-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: linear-gradient(90deg, #f5f7fa 80%, #e3f0ff 100%);
-  border: 1.5px solid #b0c4de;
-  color: #34495e;
-  font-size: 1.08rem;
-  font-weight: 500;
-  padding: 0.7rem 2.5rem 0.7rem 1rem;
+  padding: 0.8rem 1rem;
+  border: 2px solid rgba(74, 137, 220, 0.3);
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(80,120,200,0.06);
-  transition: all 0.3s;
-  outline: none;
-  background-image: url('data:image/svg+xml;utf8,<svg fill="%234a89dc" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
-  background-repeat: no-repeat;
-  background-position: right 0.8rem center;
-  background-size: 1.2rem;
-  min-width: 220px;
+  font-size: 1rem;
+  background: white;
   cursor: pointer;
+  transition: all 0.2s;
+  color: #2c3e50;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.model-select:focus {
+  border-color: #4a89dc;
+  box-shadow: 0 0 0 3px rgba(74, 137, 220, 0.15);
+  outline: none;
+}
+
+.model-select:disabled {
+  background-color: #f5f7fa;
+  border-color: #e0e0e0;
+  cursor: not-allowed;
 }
 
 /* 新增AI流式报告样式 */
@@ -1595,9 +1802,9 @@ input[type="text"] {
 }
 
 .ai-report-regenerate:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3a79cc, #5cc5dd);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74,137,220,0.25);
+  background: linear-gradient(135deg, #3a79cc, #4a8def);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(74,137,220,0.25);
 }
 
 .ai-report-regenerate:disabled {
@@ -1606,7 +1813,7 @@ input[type="text"] {
 }
 
 .ai-report-generate {
-  background: linear-gradient(135deg, #3498db, #2980b9);
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
   border: none;
   border-radius: 8px;
@@ -1830,7 +2037,7 @@ input[type="text"] {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  background-color: #f1f5f9;
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   padding: 6px 10px;
   border-radius: 4px;
   border: 1px solid #e2e8f0;
@@ -1855,7 +2062,7 @@ input[type="text"] {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #cbd5e1;
+  background-color: #d9cbe1;
   border-radius: 10px;
   transition: .3s;
 }
@@ -1887,7 +2094,203 @@ input:checked + .slider:before {
 .rag-label {
   font-size: 0.85em;
   font-weight: 500;
-  color: #555;
+  color: #f8f2f2;
   user-select: none;
 }
+
+.refresh-btn {
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74,137,220,0.25);
+}
+
+.refresh-btn:disabled {
+  background: #b0c4de;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 新增：按钮禁用状态样式 */
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.action-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.analyze-btn {
+  background: linear-gradient(135deg, #4a89dc, #5b9dff);
+  color: white;
+  box-shadow: 0 4px 6px rgba(74, 137, 220, 0.15);
+}
+
+.analyze-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(74, 137, 220, 0.25);
+  background: linear-gradient(135deg, #3a79cc, #4a8def);
+}
+
+.clear-btn {
+  background: linear-gradient(135deg, #8fa6c2, #a1b5d0);
+  color: white;
+  box-shadow: 0 4px 6px rgba(143, 166, 194, 0.15);
+}
+
+.clear-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(143, 166, 194, 0.25);
+}
+
+.format-info {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.format-badge {
+  background: linear-gradient(90deg, #f5f7fa 90%, #e3f0ff 100%);
+  padding: 0.7rem 1.2rem;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(74, 137, 220, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  color: #4a89dc;
+  font-weight: 500;
+}
+
+.format-badge i {
+  color: #4a89dc;
+}
+
+.success-message {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.2);
+  animation: fadeIn 0.5s ease-out;
+}
+
+.uploading-text {
+  color: #4a89dc;
+  font-weight: 500;
+}
+
+.error-text {
+  color: #e74c3c;
+  font-weight: 500;
+}
+/* 特定的基因卡片样式 */
+.detail-modal-content {
+  background: linear-gradient(120deg, #f5f7fa 60%, #e3f0ff 100%);
+  border-radius: 22px;
+  box-shadow: 0 8px 40px 0 rgba(80,120,200,0.18), 0 1.5px 8px 0 rgba(123,104,238,0.10);
+  padding: 2.5rem 2.8rem 2.2rem 2.8rem;
+  min-width: 380px;
+  max-width: 95vw;
+  min-height: 260px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: modal-pop 0.25s cubic-bezier(.4,2,.6,1) 1;
+}
+
+.detail-close {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.5rem;
+  font-size: 2.1rem;
+  color: #7b68ee;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+  z-index: 2;
+}
+
+.detail-modal-title {
+  color: #34495e;
+  font-size: 1.45rem;
+  font-weight: 700;
+  margin-bottom: 1.7rem;
+  letter-spacing: 1px;
+  text-align: center;
+  background: linear-gradient(90deg, #7b68ee 0%, #6a5acd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.detail-gene-details {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.detail-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 0.7rem 0.5rem;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #fafdff 80%, #e3f0ff 100%);
+  box-shadow: 0 1px 4px rgba(123,104,238,0.07);
+}
+
+.detail-detail-label {
+  min-width: 80px;
+  color: #7b68ee;
+  font-weight: 600;
+  font-size: 1.08rem;
+  letter-spacing: 0.5px;
+}
+
+.detail-detail-value {
+  color: #34495e;
+  font-size: 1.08rem;
+  font-weight: 500;
+  word-break: break-all;
+}
+
 </style>

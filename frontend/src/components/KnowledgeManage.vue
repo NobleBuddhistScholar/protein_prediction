@@ -6,7 +6,7 @@
           <i class="fa-solid fa-brain"></i> 知识库管理
         </h2>
       </div>
-      <button class="refresh-btn" @click="getCollections" :disabled="isUploading">
+      <button class="refresh-btn" @click="refreshPage" :disabled="isUploading">
         <i class="fa-solid fa-sync" :class="{ 'fa-spin': isUploading }"></i> 刷新
       </button>
     </div>
@@ -260,6 +260,41 @@ export default {
         });
     },
     
+    // 刷新整个页面的方法
+    refreshPage() {
+      this.isUploading = true;
+      
+      // 显示加载状态
+      setTimeout(() => {
+        // 重置所有状态数据
+        this.resetAll();      
+        // 恢复状态
+        this.isUploading = false;
+      }, 500);
+    },
+    
+    // 重置所有状态数据的方法
+    resetAll() {
+      // 重置文件相关状态
+      this.fileToUpload = null;
+      this.fileName = '';
+      this.uploadError = null;
+      this.uploadSuccess = false;
+      this.uploadedFileName = '';
+      this.progress = 0;
+      
+      // 清除文件输入
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = '';
+      }
+      
+      // 重置通知状态
+      if (this.notificationTimer) {
+        clearTimeout(this.notificationTimer);
+      }
+      this.notification.show = false;
+    },
+    
     showNotification(message, type = 'success', duration = 3000) {
       // 清除之前的计时器
       if (this.notificationTimer) {
@@ -284,9 +319,12 @@ export default {
 
 <style scoped>
 .container {
-  padding: 2rem;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 2.5rem 1.5rem 2rem 1.5rem;
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
+  min-height: 100vh;
 }
 
 .header-section {
@@ -324,29 +362,31 @@ export default {
 }
 
 .refresh-btn {
-  background: linear-gradient(135deg, #4a89dc 0%, #5b9dff 100%);
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
   border: none;
-  padding: 0.6rem 1.2rem;
   border-radius: 8px;
-  font-weight: 500;
-  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  font-size: 1.05rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.15);
   display: flex;
   align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 6px rgba(74, 137, 220, 0.1);
+  gap: 0.5rem;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(74, 137, 220, 0.2);
+  background: linear-gradient(135deg, #3a79cc, #5cc5dd);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74,137,220,0.25);
 }
 
 .refresh-btn:disabled {
-  opacity: 0.6;
+  background: #b0c4de;
   cursor: not-allowed;
+  transform: none;
 }
 
 .upload-section {

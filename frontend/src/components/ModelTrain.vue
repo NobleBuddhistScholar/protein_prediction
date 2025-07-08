@@ -1,17 +1,19 @@
 <template>
   <div class="container gradient-bg">
-    <div class="header-section card">
+    <div class="header-section">
       <h2 class="section-title">
-        <i class="fa-solid fa-brain"></i> 预训练模型训练
+        <i class="fa-solid fa-brain"></i> 模型训练
       </h2>
+      <button class="refresh-btn" @click="refreshPage" :disabled="isUploading">
+        <i class="fa-solid fa-sync" :class="{ 'fa-spin': isUploading }"></i> 刷新
+      </button>
     </div>
 
     <!-- 选择模型和上传数据集（一行显示） -->
-    <div class="form-row-flex card">
+    <div v-if="!isTraining && !trainingFinished" class="form-row-flex card">
       <div class="form-col">
         <label class="form-label">选择已有模型（可选）：</label>
         <select v-model="selectedModel" class="form-select">
-          <option value="">不使用预训练</option>
           <option v-for="model in modelList" :key="model" :value="model">{{ model }}</option>
         </select>
       </div>
@@ -31,7 +33,7 @@
     </div>
 
     <!-- 训练参数输入区 -->
-    <div class="form-row card" style="flex-wrap: wrap; gap: 1.5rem;">
+    <div v-if="!isTraining && !trainingFinished" class="form-row card" style="flex-wrap: wrap; gap: 1.5rem;">
       <div>
         <label>max_length：</label>
         <input v-model.number="form.max_length" type="number" min="100" max="100000" step="100" class="input-beauty" style="width:90px" />
@@ -54,13 +56,13 @@
       </div>
     </div>
     <!-- 模型名称输入单独一行 -->
-    <div class="model-name-row card">
+    <div v-if="!isTraining && !trainingFinished" class="model-name-row card">
       <label class="form-label">新模型名：</label>
       <input v-model="form.new_model_name" class="input-beauty model-name-input" placeholder="仅字母数字下划线" maxlength="32" />
     </div>
 
     <!-- 启动训练按钮 -->
-    <div class="form-row card">
+    <div v-if="!isTraining && !trainingFinished" class="form-row card">
       <button class="train-button gradient-btn" :disabled="!fileName || !form.new_model_name || isTraining" @click="startTraining">
         <i class="fa-solid fa-play"></i> 开始训练
       </button>
@@ -99,16 +101,15 @@
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- 训练结果展示 -->
-    <div v-if="trainingFinished" class="result-section card result-section-beauty">
-      <div class="saved-tip saved-tip-beauty">
-        <i class="fa-solid fa-check-circle"></i>
-        <span>模型已自动保存为 <b>{{ form.new_model_name }}.pth</b> / <b>{{ form.new_model_name }}.json</b></span>
-        <button class="cancel-btn" @click="resetAll">关闭</button>
+      <!-- 训练结果展示 -->
+      <div v-if="trainingFinished" class="result-section card result-section-beauty">
+        <div class="saved-tip saved-tip-beauty">
+          <i class="fa-solid fa-check-circle"></i>
+          <span>模型已自动保存为 <b>{{ form.new_model_name }}.pth</b> / <b>{{ form.new_model_name }}.json</b></span>
+        </div>
       </div>
     </div>
+
     <div v-if="errorMsg" class="error-tip card"><i class="fa-solid fa-exclamation-triangle"></i> {{ errorMsg }}</div>
   </div>
 </template>
@@ -125,7 +126,7 @@ export default {
         'MSA_ResGRUNet_v1',
         'protein_classifier'
       ],
-      selectedModel: '',
+      selectedModel: 'HybridModel_v1', // 默认选中第一个模型
       fileName: '',
       isTraining: false,
       progress: 0,
@@ -150,6 +151,28 @@ export default {
     };
   },
   methods: {
+    // 刷新整个页面的方法
+    refreshPage() {
+      this.isUploading = true;
+      
+      // 显示加载状态
+      setTimeout(() => {
+        // 重置所有状态数据
+        this.resetAll();
+        
+        // 获取最新的模型列表
+        this.modelList = [
+          'HybridModel_v1',
+          'HyperFusionCortex_v1',
+          'MSA_ResGRUNet_protein_classifier',
+          'MSA_ResGRUNet_v1',
+          'protein_classifier'
+        ];
+        
+        // 恢复状态
+        this.isUploading = false;
+      }, 500);
+    },
     handleFileChange(e) {
       const files = Array.from(e.target.files);
       this.fileList = files;
@@ -273,6 +296,8 @@ export default {
   margin: 0 auto;
   padding: 2.5rem 1.5rem 2rem 1.5rem;
   font-family: 'Segoe UI', 'Arial', sans-serif;
+  background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
+  min-height: 100vh;
 }
 .gradient-bg {
   background: linear-gradient(120deg, #f5f7fa 0%, #e3f0ff 100%);
@@ -286,11 +311,15 @@ export default {
   padding: 2.2rem 2rem 2rem 2rem;
   border: none;
 }
-.header-section.card {
+.header-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
   background: linear-gradient(90deg, #e3f0ff 60%, #f5f7fa 100%);
+  border-radius: 18px;
+  padding: 1.8rem;
   box-shadow: 0 4px 18px rgba(80,120,200,0.10);
-  margin-bottom: 2.5rem;
-  padding: 2.2rem 2rem 1.2rem 2rem;
 }
 .section-title {
   color: #2c3e50;
@@ -482,7 +511,7 @@ export default {
   box-shadow: 0 2px 8px rgba(80,120,200,0.04);
 }
 .result-section-beauty {
-  background: linear-gradient(120deg, #f5f7fa 60%, #e3f0ff 100%);
+  background: linear-gradient(135deg, #c175e1 0%, #731d80);
   border-radius: 18px;
   box-shadow: 0 8px 32px rgba(80,120,200,0.10);
   padding: 2.2rem 2rem 2rem 2rem;
@@ -491,11 +520,15 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: 700px;
+  height: 20px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .saved-tip-beauty {
   margin-top: 0;
-  background: linear-gradient(90deg, #e8f5e9 80%, #f1f8e9 100%);
-  border: 1.5px solid #b2dfdb;
+  background: transparent;
+  border: 1.5px solid #b2dfdb00;
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(67,160,71,0.07);
   display: flex;
@@ -504,13 +537,14 @@ export default {
   gap: 1.2rem;
   padding: 1.1rem 1.5rem;
   font-size: 1.13rem;
+  color: #fff;
 }
 .saved-tip-beauty i.fa-check-circle {
-  color: #43a047;
+  color: #fff;
   font-size: 1.6rem;
 }
 .saved-tip-beauty span {
-  color: #388e3c;
+  color: #fff;
   font-weight: 500;
 }
 .cancel-btn {
@@ -586,7 +620,7 @@ export default {
 }
 /* 训练日志区专用样式 */
 .log-card-narrow {
-  max-width: 700px;
+  max-width: 800px;
   margin: 0 auto 1.8rem auto;
   padding: 2rem 2rem 1.8rem 2rem;
   border-radius: 14px;
@@ -791,5 +825,33 @@ export default {
     gap: 0.7rem;
     font-size: 1rem;
   }
+}
+
+.refresh-btn {
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(74,137,220,0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3a79cc, #5cc5dd);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74,137,220,0.25);
+}
+
+.refresh-btn:disabled {
+  background: #b0c4de;
+  cursor: not-allowed;
+  transform: none;
 }
 </style>

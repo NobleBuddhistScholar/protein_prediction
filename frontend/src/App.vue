@@ -10,17 +10,17 @@
         <button @click="showPage('GeneVisualization')" :class="{ active: currentPage === 'GeneVisualization' }">
           <i class="fa-solid fa-flask-vial"></i> 基因组注释
         </button>
+        <button @click="showPage('ModelTrain')" :class="{ active: currentPage === 'ModelTrain' }">
+          <i class="fa-solid fa-brain"></i>  模型训练
+        </button>
         <button @click="showPage('SummaryReport')" :class="{ active: currentPage === 'SummaryReport' }">
           <i class="fa-solid fa-folder-open"></i>  总报告管理
-        </button>
-        <button @click="showPage('ModelTrain')" :class="{ active: currentPage === 'ModelTrain' }">
-          <i class="fa-solid fa-folder-open"></i>  模型训练
         </button>
         <button @click="showPage('ModelManage')" :class="{ active: currentPage === 'ModelManage' }">
           <i class="fa-solid fa-folder-open"></i>  模型管理
         </button>
         <button @click="showPage('KnowledgeManage')" :class="{ active: currentPage === 'KnowledgeManage' }">
-          <i class="fa-solid fa-brain"></i>  知识库管理
+          <i class="fa-solid fa-folder-open"></i>  知识库管理
         </button>
       </div>
       <div class="content">
