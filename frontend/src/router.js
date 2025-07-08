@@ -4,6 +4,8 @@ import Router from 'vue-router';
 import GeneVisualization from './components/GeneVisualization.vue';
 import SummaryReport from './components/SummaryReport.vue';
 import KnowledgeManage from './components/KnowledgeManage.vue';
+import ModelTrain from './components/ModelTrain.vue';
+import ModelManage from './components/ModelManage.vue';
 
 Vue.use(Router);
 
@@ -24,6 +26,14 @@ export default new Router({
     {
       path: '/knowledge-manage',
       component: KnowledgeManage
+    },
+    {
+      path: '/model-train',
+      component: ModelTrain
+    },
+    {
+      path: '/model-manage',
+      component: ModelManage
     }
   ]
 });
