@@ -25,6 +25,7 @@ chromadb==0.5.23     # 向量数据库，保持与当前版本一致
 sentence-transformers==2.5.0  # 文本向量化模型
 PyPDF2==3.0.1        # PDF文件解析
 python-docx==1.0.0   # Word文档解析
+huggingface_hub==0.24.6  # Hugging Face 模型管理和下载
 
 # 额外依赖（确保安装顺序）
 pyparsing==3.1.0     # 解析库（matplotlib依赖）
