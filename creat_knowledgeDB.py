@@ -10,9 +10,22 @@ import torch
 PERSIST_DIRECTORY = "./chroma_db"  # 向量库存储目录
 COLLECTION_NAME = "virus_knowledge"  # 集合名称
 
-# 2. 加载 embedding 模型
-print("正在加载文本向量化模型...")
-embedder = SentenceTransformer('embedding_model/shibing624_text2vec-base-chinese',device="cuda" if torch.cuda.is_available() else "cpu")
+# 2. 全局变量用于延迟加载模型
+embedder = None
+
+def get_embedder():
+    """延迟加载模型，仅在实际需要时加载"""
+    global embedder
+    if embedder is None:
+        print("正在加载文本向量化模型...")
+        try:
+            embedder = SentenceTransformer('embedding_model/shibing624_text2vec-base-chinese',
+                                          device="cuda" if torch.cuda.is_available() else "cpu")
+            print("文本向量化模型加载完成")
+        except Exception as e:
+            print(f"加载文本向量化模型出错: {str(e)}")
+            raise
+    return embedder
 
 # 3. 只按固定长度切分文本（支持多段落合并）
 def load_text_chunks(file_path, chunk_size=500, overlap=50):
@@ -99,7 +112,7 @@ def build_knowledge_base(path, chunk_size=500, overlap=50):
     
     # 计算每段的 embedding（使用批处理加速）
     print("正在计算文本向量表示...")
-    embeddings = embedder.encode(all_chunks, batch_size=64).tolist()
+    embeddings = get_embedder().encode(all_chunks, batch_size=64).tolist()
     
     # 生成唯一ID
     ids = [f"chunk_{i}" for i in range(len(all_chunks))]
@@ -193,7 +206,7 @@ def add_to_knowledge_base(path, collection_name=COLLECTION_NAME, chunk_size=500,
     
     # 计算每段的 embedding
     print("正在计算文本向量表示...")
-    embeddings = embedder.encode(all_chunks, batch_size=64).tolist()
+    embeddings = get_embedder().encode(all_chunks, batch_size=64).tolist()
     
     # 生成唯一ID，从当前数量开始递增
     ids = [f"chunk_{collection_count + i}" for i in range(len(all_chunks))]
@@ -273,7 +286,7 @@ def search_knowledge(genome_id: str, genome_data: dict, collection_name=COLLECTI
     print("正在获取查询关键词...")
     query = get_qurey(genome_id, genome_data)
     # 对查询进行向量化
-    query_embedding = embedder.encode([query]).tolist()[0]
+    query_embedding = get_embedder().encode([query]).tolist()[0]
     
     # 执行向量检索
     print("正在执行向量检索...")
