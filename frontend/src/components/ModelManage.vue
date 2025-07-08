@@ -4,9 +4,21 @@
       <h2 class="section-title">
         <i class="fa-solid fa-database"></i> 模型管理
       </h2>
-      <button class="refresh-btn" @click="loadModels" :disabled="loading">
-        <i class="fa-solid fa-sync" :class="{ 'fa-spin': loading }"></i> 刷新
-      </button>
+      <div class="header-actions">
+        <button class="model-btn promoter-btn" @click="pullPromoterModel" :disabled="pulling.promoter">
+          <i class="fa-solid fa-cloud-download-alt"></i> 
+          <span v-if="!pulling.promoter">拉取启动子识别模型</span>
+          <span v-else>拉取中...</span>
+        </button>
+        <button class="model-btn embedding-btn" @click="pullEmbeddingModel" :disabled="pulling.embedding">
+          <i class="fa-solid fa-cloud-download-alt"></i> 
+          <span v-if="!pulling.embedding">拉取文本向量化模型</span>
+          <span v-else>拉取中...</span>
+        </button>
+        <button class="refresh-btn" @click="loadModels" :disabled="loading">
+          <i class="fa-solid fa-sync" :class="{ 'fa-spin': loading }"></i> 刷新
+        </button>
+      </div>
     </div>
 
     <!-- 搜索区域 -->
@@ -238,6 +250,12 @@ export default {
       error: null,
       actionLoading: {},
       
+      // 模型拉取状态
+      pulling: {
+        promoter: false,
+        embedding: false
+      },
+      
       // 模态框状态
       showDetailsModal: false,
       showRenameModal: false,
@@ -445,6 +463,71 @@ export default {
       this.$set(this.actionLoading, filename, loading);
     },
     
+    // 拉取启动子识别模型
+    async pullPromoterModel() {
+      if (this.pulling.promoter) return;
+      
+      this.pulling.promoter = true;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/models/pull/promoter`, {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || '拉取启动子识别模型失败');
+        }
+        
+        // 如果有警告信息，使用警告类型通知
+        if (data.warning) {
+          this.showNotification(data.message, 'warning');
+        } else {
+          this.showNotification(data.message || '启动子识别模型拉取成功', 'success');
+        }
+        this.loadModels(); // 刷新模型列表
+        
+      } catch (error) {
+        console.error('拉取启动子识别模型失败:', error);
+        this.showNotification('拉取失败: ' + error.message, 'error');
+      } finally {
+        this.pulling.promoter = false;
+      }
+    },
+    
+    // 拉取向量化模型
+    async pullEmbeddingModel() {
+      if (this.pulling.embedding) return;
+      
+      this.pulling.embedding = true;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/models/pull/embedding`, {
+          method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || '拉取向量化模型失败');
+        }
+        
+        // 如果有警告信息，使用警告类型通知
+        if (data.warning) {
+          this.showNotification(data.message, 'warning');
+        } else {
+          this.showNotification(data.message || '向量化模型拉取成功', 'success');
+        }
+        
+      } catch (error) {
+        console.error('拉取向量化模型失败:', error);
+        this.showNotification('拉取失败: ' + error.message, 'error');
+      } finally {
+        this.pulling.embedding = false;
+      }
+    },
+    
     closeDetailsModal() {
       this.showDetailsModal = false;
       this.selectedModelDetails = null;
@@ -506,6 +589,12 @@ export default {
   box-shadow: 0 4px 18px rgba(80,120,200,0.10);
 }
 
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
 .section-title {
   color: #2c3e50;
   display: flex;
@@ -522,14 +611,13 @@ export default {
   font-size: 2.1rem;
 }
 
-.refresh-btn {
+.model-btn, .refresh-btn {
   padding: 0.8rem 1.5rem;
-  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 500;
   transition: all 0.3s;
   box-shadow: 0 2px 8px rgba(74,137,220,0.15);
@@ -538,14 +626,33 @@ export default {
   gap: 0.5rem;
 }
 
-.refresh-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #3a79cc, #5cc5dd);
+.refresh-btn {
+  background: linear-gradient(135deg, #4a89dc, #6dd5ed);
+}
+
+.promoter-btn {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.embedding-btn {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.model-btn:hover:not(:disabled), .refresh-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(74,137,220,0.25);
 }
 
-.refresh-btn:disabled {
-  background: #b0c4de;
+.promoter-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2980b9, #1c6ea4);
+}
+
+.embedding-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8e44ad, #7d3c98);
+}
+
+.model-btn:disabled, .refresh-btn:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
   transform: none;
 }
