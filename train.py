@@ -400,6 +400,7 @@ class ProteinClassifier:
                 num_classes=len(checkpoint['label_map'])
             ).to(classifier.device)
             classifier.model.load_state_dict(checkpoint['model_state'])
+            return classifier
         elif model == 'HyperFusionCortex':
             classifier.model = HyperFusionCortex(
                 vocab_size=23,
@@ -434,6 +435,7 @@ class ProteinClassifier:
                 num_classes=len(checkpoint['label_map'])
             ).to(classifier.device)
             classifier.model.load_state_dict(checkpoint['model_state'])
+            return classifier
         elif model == 'HyperFusionCortex':
             classifier.model = HyperFusionCortex(
                 vocab_size=23,
@@ -910,7 +912,7 @@ class ProteinClassifier:
         plt.close()
 if __name__ == "__main__":
     # 测试模型标注
-    classifier = ProteinClassifier.load(model_path='model/HybridModel_v1.pth', model='HybridModel')
+    classifier = ProteinClassifier.load(model_path='model/MSA_ResGRUNet_v1.pth', model='MSA_ResGRUNet')
     genome_result = classifier.predict_genome(
         "prectice_test/TS000000.fasta", 
         result_save_path="test_results",
