@@ -14,6 +14,7 @@ import base64
 from chat_api import generate_summary_stream
 from transformers import AutoTokenizer, AutoModel, AutoConfig
 from huggingface_hub import snapshot_download
+import shutil
 
 # 配置日志记录
 logging.basicConfig(level=logging.DEBUG)
@@ -52,7 +53,9 @@ if not os.path.exists(GFF_FOLDER):
 # 确保知识库文件夹存在
 if not os.path.exists(KNOWLEDGE_FOLDER):
     os.makedirs(KNOWLEDGE_FOLDER)
-
+# ============================
+# 通用方法
+# ============================
 # 新增：获取模型列表的接口
 @app.route('/models', methods=['GET'])
 def get_models():
@@ -112,6 +115,10 @@ def get_models():
 # 检查文件类型
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# ============================
+# 基因组注释模块方法
+# ============================
 #上传文件并处理基因组预测
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -218,14 +225,6 @@ def get_summary():
         logging.error(f"Failed to read summary file {summary_filename}: {str(e)}")
         return jsonify({"error": f"Failed to read summary file: {str(e)}"}), 500
 
-@app.route('/getAllSummaries', methods=['GET'])
-def get_all_summaries():
-    try:
-        files = os.listdir(SUMMARY_FOLDER)
-        return jsonify(files)
-    except Exception as e:
-        return jsonify({"error": f"Failed to get summaries: {str(e)}"}), 500
-
 # 利用generate_gff.py生成gff报告
 @app.route('/generate_gff', methods=['GET'])
 def generate_gff_api():
@@ -274,8 +273,9 @@ def get_gff():
         logging.error(f"Failed to read GFF file {gff_file_name}: {str(e)}")
         return jsonify({"error": f"Failed to read GFF file: {str(e)}"}), 500
 
-# 模型管理相关API接口
-
+# ============================
+# 模型管理模块方法
+# ============================
 @app.route('/models/<model_filename>', methods=['DELETE'])
 def delete_model(model_filename):
     """删除指定模型文件"""
@@ -881,8 +881,55 @@ def pull_embedding_model():
                 "success": False,
                 "error": f"下载模型失败: 代理连接错误，请检查Clash代理设置（端口7890）或尝试关闭代理后重试"
             }), 500
+def download_file(url, save_path, proxies=None):
+    """直接下载文件，支持代理设置和进度反馈"""
+    try:
+        logging.info(f"直接下载文件: {url} -> {save_path}")
+        
+        # 创建保存路径的目录（如果不存在）
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        
+        # 发送GET请求下载文件
+        response = requests.get(
+            url, 
+            stream=True,  # 流式下载大文件
+            proxies=proxies,
+            verify=False,  # 禁用SSL验证
+            timeout=60
+        )
+        response.raise_for_status()  # 如果响应码不是200，抛出异常
+        
+        # 获取文件总大小
+        total_size = int(response.headers.get('content-length', 0))
+        downloaded_size = 0
+        
+        # 写入文件
+        with open(save_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    downloaded_size += len(chunk)
+                    # 每下载10%记录一次日志
+                    if total_size > 0 and downloaded_size % (total_size // 10) < 8192:
+                        percent = (downloaded_size / total_size) * 100
+                        logging.info(f"下载进度: {percent:.1f}% ({downloaded_size}/{total_size})")
+        
+        logging.info(f"文件下载完成: {save_path}")
+        return True
+    except Exception as e:
+        logging.error(f"文件下载失败: {str(e)}")
+        return False
 
-# 报告管理相关API接口
+# ============================
+# 报告管理模块方法
+# ============================
+@app.route('/getAllSummaries', methods=['GET'])
+def get_all_summaries():
+    try:
+        files = os.listdir(SUMMARY_FOLDER)
+        return jsonify(files)
+    except Exception as e:
+        return jsonify({"error": f"Failed to get summaries: {str(e)}"}), 500
 @app.route('/reports/<report_filename>', methods=['DELETE'])
 def delete_report(report_filename):
     """删除指定报告文件"""
@@ -974,7 +1021,10 @@ def get_report_details(report_filename):
     except Exception as e:
         logging.error(f"Failed to get report details for {report_filename}: {str(e)}")
         return jsonify({"error": f"Failed to get report details: {str(e)}"}), 500
-
+    
+# ============================
+# 模型训练模块方法
+# ============================
 @app.route('/save_model', methods=['POST'])
 def save_model():
     """保存训练好的模型和配置到model目录，不覆盖同名文件"""
@@ -1109,11 +1159,12 @@ def train_model():
             yield json.dumps({"error": f"训练接口异常: {str(e)}"}) + '\n'
     return Response(stream_with_context(stream_train()), mimetype='text/plain')
 
-# 知识库相关导入
+# ============================
+# 知识库导入模块方法
+# ============================
 import sys
 sys.path.append('.')
 from creat_knowledgeDB import add_to_knowledge_base, list_collections, get_collection_info
-
 # 知识库临时文件清理函数
 def cleanup_knowledge_files():
     """清理knowledge_files文件夹中的临时文件"""
@@ -1368,52 +1419,4 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
     print("服务器已关闭")
 
-import logging
-import os
-import json
-import re
-import sys
-import shutil
-import tempfile
-import threading
-import queue
-import requests  # 确保导入了requests库
 
-def download_file(url, save_path, proxies=None):
-    """直接下载文件，支持代理设置和进度反馈"""
-    try:
-        logging.info(f"直接下载文件: {url} -> {save_path}")
-        
-        # 创建保存路径的目录（如果不存在）
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        
-        # 发送GET请求下载文件
-        response = requests.get(
-            url, 
-            stream=True,  # 流式下载大文件
-            proxies=proxies,
-            verify=False,  # 禁用SSL验证
-            timeout=60
-        )
-        response.raise_for_status()  # 如果响应码不是200，抛出异常
-        
-        # 获取文件总大小
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded_size = 0
-        
-        # 写入文件
-        with open(save_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded_size += len(chunk)
-                    # 每下载10%记录一次日志
-                    if total_size > 0 and downloaded_size % (total_size // 10) < 8192:
-                        percent = (downloaded_size / total_size) * 100
-                        logging.info(f"下载进度: {percent:.1f}% ({downloaded_size}/{total_size})")
-        
-        logging.info(f"文件下载完成: {save_path}")
-        return True
-    except Exception as e:
-        logging.error(f"文件下载失败: {str(e)}")
-        return False
