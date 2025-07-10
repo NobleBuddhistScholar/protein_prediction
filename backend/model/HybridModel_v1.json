@@ -1,0 +1,16 @@
+{
+  "model_type": "HybridModel",
+  "data_set":"",
+  "evaluate": {
+    "epoch": 10,
+    "train_loss": 0.2345,
+    "train_accuracy": 0.92,
+    "train_auc": 0.95,
+    "train_f1_macro": 0.89,
+    "val_loss": 0.2567,
+    "val_accuracy": 0.91,
+    "val_auc": 0.94,
+    "val_f1_macro": 0.88,
+    "learning_rate": 0.001
+  }
+}

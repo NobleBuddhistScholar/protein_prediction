@@ -307,7 +307,7 @@ export default {
             this.error = null;
             
             try {
-                const response = await fetch(`${API_BASE_URL}/getAllSummaries`);
+                const response = await fetch(`${API_BASE_URL}/report/getAllSummaries`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
@@ -349,7 +349,7 @@ export default {
             
             try {
                 const { genome_id, current_date } = report;
-                const response = await fetch(`${API_BASE_URL}/summary?genome_id=${genome_id}&current_date=${current_date}`);
+                const response = await fetch(`${API_BASE_URL}/commence/summary?genome_id=${genome_id}&current_date=${current_date}`);
                 
                 if (!response.ok) {
                     throw new Error(`获取报告内容失败: ${response.statusText}`);
@@ -371,7 +371,7 @@ export default {
             this.setActionLoading(filename, true);
             
             try {
-                const response = await fetch(`${API_BASE_URL}/reports/${filename}/details`);
+                const response = await fetch(`${API_BASE_URL}/report/reports/${filename}/details`);
                 if (!response.ok) {
                     throw new Error(`获取报告详情失败: ${response.statusText}`);
                 }
@@ -392,7 +392,7 @@ export default {
             
             try {
                 const { genome_id, current_date } = report;
-                const response = await fetch(`${API_BASE_URL}/summary?genome_id=${genome_id}&current_date=${current_date}`);
+                const response = await fetch(`${API_BASE_URL}/commence/summary?genome_id=${genome_id}&current_date=${current_date}`);
                 
                 if (!response.ok) {
                     throw new Error(`获取报告内容失败: ${response.statusText}`);
@@ -424,7 +424,7 @@ export default {
             try {
                 const { genome_id, current_date } = report;
                 const gffFileName = `${genome_id}_annotation_${current_date}.gff`;
-                const response = await fetch(`${API_BASE_URL}/gff?genome_id=${genome_id}&current_date=${current_date}`);
+                const response = await fetch(`${API_BASE_URL}/commence/gff?genome_id=${genome_id}&current_date=${current_date}`);
                 
                 if (!response.ok) {
                     throw new Error(`获取GFF报告失败: ${response.statusText}`);
@@ -462,7 +462,7 @@ export default {
             this.deleting = true;
             
             try {
-                const response = await fetch(`${API_BASE_URL}/reports/${this.selectedReportForDelete.filename}`, {
+                const response = await fetch(`${API_BASE_URL}/report/reports/${this.selectedReportForDelete.filename}`, {
                     method: 'DELETE'
                 });
                 

@@ -333,7 +333,7 @@ export default {
     // 新增：加载模型列表
     async loadModelList() {
       try {
-        const response = await fetch(`${API_BASE_URL}/models`);
+        const response = await fetch(`${API_BASE_URL}/commence/models`);
         if (!response.ok) throw new Error('获取模型列表失败');
         
         const data = await response.json();
@@ -479,7 +479,7 @@ export default {
       formData.append('model_file', this.selectedModelFile); // 添加选择的模型文件参数
 
       try {
-        const response = await fetch(`${API_BASE_URL}/upload`, {
+        const response = await fetch(`${API_BASE_URL}/gene/upload`, {
           method: 'POST',
           body: formData
         });
@@ -560,7 +560,7 @@ export default {
       try {
         const genome_id = this.geneData.metadata.genome_id;
         const current_date = new Date().toISOString().split('T')[0];
-        const url = `${API_BASE_URL}/summary?genome_id=${genome_id}&current_date=${current_date}`;
+        const url = `${API_BASE_URL}/commence/summary?genome_id=${genome_id}&current_date=${current_date}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('报告获取失败');
         const reportData = await response.json();
@@ -613,7 +613,7 @@ export default {
 
       // 发出生成GFF报告的请求
       const generateResponse = await fetch(
-        `${API_BASE_URL}/generate_gff?genome_id=${genome_id}&current_date=${current_date}`
+        `${API_BASE_URL}/gene/generate_gff?genome_id=${genome_id}&current_date=${current_date}`
       );
       if (!generateResponse.ok) {
         throw new Error('生成GFF报告失败');
@@ -621,7 +621,7 @@ export default {
 
       // 获取GFF报告
       const gffResponse = await fetch(
-        `${API_BASE_URL}/gff?genome_id=${genome_id}&current_date=${current_date}`
+        `${API_BASE_URL}/commence/gff?genome_id=${genome_id}&current_date=${current_date}`
       );
       if (!gffResponse.ok) {
         throw new Error('获取GFF报告失败');
@@ -861,7 +861,7 @@ export default {
           use_rag: this.useRAG  // 添加是否使用知识库增强的参数
         };
         console.log(`生成AI报告，知识库增强: ${this.useRAG ? '开启' : '关闭'}`);
-        const response = await fetch(`${API_BASE_URL}/stream_summary`, {
+        const response = await fetch(`${API_BASE_URL}/gene/stream_summary`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postData)

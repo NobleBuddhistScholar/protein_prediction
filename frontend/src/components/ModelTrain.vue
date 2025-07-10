@@ -14,7 +14,9 @@
       <div class="form-col">
         <label class="form-label">选择已有模型（可选）：</label>
         <select v-model="selectedModel" class="form-select">
-          <option v-for="model in modelList" :key="model" :value="model">{{ model }}</option>
+            <option v-for="option in modelOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
         </select>
       </div>
       
@@ -119,14 +121,8 @@ import { API_BASE_URL } from '../config.js';
 export default {
   data() {
     return {
-      modelList: [
-        'HybridModel_v1',
-        'HyperFusionCortex_v1',
-        'MSA_ResGRUNet_protein_classifier',
-        'MSA_ResGRUNet_v1',
-        'protein_classifier'
-      ],
-      selectedModel: 'HybridModel_v1', // 默认选中第一个模型
+      modelOptions: [], 
+      selectedModel: 'HyperFusionCortex_v1.pth',
       fileName: '',
       isTraining: false,
       progress: 0,
@@ -150,24 +146,50 @@ export default {
       }
     };
   },
+  async created() {
+    await this.loadModelList();
+    // 设置默认选中第一个模型（如果有）
+    if (this.modelList.length > 0) {
+      this.selectedModel = this.modelList[0];
+    }
+  },
   methods: {
+    // 新增：加载模型列表
+    async loadModelList() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/commence/models`);
+        if (!response.ok) throw new Error('获取模型列表失败');
+        
+        const data = await response.json();
+        this.modelOptions = data.models.map(model => ({
+          value: model.filename,
+          label: model.display_name + (model.description ? ` (${model.description})` : '')
+        }));
+        
+        // 如果当前选择的模型不在列表中，选择第一个可用模型
+        if (this.modelOptions.length > 0 && 
+            !this.modelOptions.find(option => option.value === this.selectedModelFile)) {
+          this.selectedModelFile = this.modelOptions[0].value;
+        }
+      } catch (error) {
+        console.error('加载模型列表失败:', error);
+        // 提供默认选项
+        this.modelOptions = [
+          { value: 'HyperFusionCortex_v1.pth', label: 'HyperFusionCortex v1' }
+        ];
+      }
+    },
     // 刷新整个页面的方法
     refreshPage() {
       this.isUploading = true;
       
       // 显示加载状态
-      setTimeout(() => {
+      setTimeout(async () => {
         // 重置所有状态数据
         this.resetAll();
         
         // 获取最新的模型列表
-        this.modelList = [
-          'HybridModel_v1',
-          'HyperFusionCortex_v1',
-          'MSA_ResGRUNet_protein_classifier',
-          'MSA_ResGRUNet_v1',
-          'protein_classifier'
-        ];
+        await this.loadModelList();
         
         // 恢复状态
         this.isUploading = false;
@@ -193,7 +215,18 @@ export default {
       if (this.selectedModel) {
         formData.append('pretrain_model', this.selectedModel);
       }
-      formData.append('model_type', this.selectedModel ? this.selectedModel.replace('.pth', '').replace('_v1','').replace('_protein_classifier','') : 'HybridModel');
+      // 直接传递所选模型的 type 属性
+      
+      const selectedOption = this.modelOptions.find(opt => opt.value === this.selectedModel);
+      // 提取模型类型（如 label: "xxx (模型类型: XXX)"）
+      let modelType = '';
+      if (selectedOption && selectedOption.label) {
+        const typeMatch = selectedOption.label.match(/模型类型[:：]\s*([^)]+)\)/);
+        modelType = typeMatch ? typeMatch[1] : '';
+      }
+      console.log('selectedOption:', selectedOption);
+      console.log('提取的模型类型:', modelType);
+      formData.append('model_type', modelType || 'HybridModel');
       formData.append('max_length', this.form.max_length);
       formData.append('batch_size', this.form.batch_size);
       formData.append('epochs', this.form.epochs);
@@ -201,7 +234,7 @@ export default {
       formData.append('val_ratio', this.form.val_ratio);
       formData.append('new_model_name', this.form.new_model_name);
       try {
-        const url = `${API_BASE_URL}/train_model`;
+        const url = `${API_BASE_URL}/train/train_model`;
         const res = await fetch(url, {
           method: 'POST',
           body: formData
@@ -751,7 +784,7 @@ export default {
   margin: 1.5rem auto;
   padding: 1.8rem 2rem 1.5rem 2rem;
   border-radius: 14px;
-  background: linear-gradient(145deg, #ffffff, #f8faff);
+  background: linear-gradient(145deg, #ffffff, #f8fafd);
   box-shadow: 0 10px 30px rgba(74, 137, 220, 0.12);
   border: 1px solid rgba(74, 137, 220, 0.08);
 }

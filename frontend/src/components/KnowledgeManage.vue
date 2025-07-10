@@ -195,7 +195,7 @@ export default {
         }
       }, 300);
 
-      axios.post(`${API_BASE_URL}/api/knowledge`, formData, {
+      axios.post(`${API_BASE_URL}/knowledge/knowledge`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -246,7 +246,7 @@ export default {
     getCollections() {
       this.isUploading = true;
       
-      axios.get(`${API_BASE_URL}/api/knowledge/collections`)
+      axios.get(`${API_BASE_URL}/knowledge/knowledge/collections`)
         .then(response => {
           if (response.data.success) {
             this.collections = response.data.collections;
